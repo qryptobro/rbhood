@@ -70,7 +70,7 @@ const BASE_ASSETS: Record<Tab, Omit<Asset, "price" | "change" | "up">[]> = {
     { symbol: "META",  name: "Meta Platforms"  },
     { symbol: "NFLX",  name: "Netflix Inc."    },
     { symbol: "AMD",   name: "AMD Inc."        },
-    { symbol: "SPY",   name: "S&P 500 ETF"     },
+    { symbol: "COIN",  name: "Coinbase Global" },
   ],
 };
 

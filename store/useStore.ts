@@ -181,9 +181,9 @@ export const useStore = create<Store>()(
         { id: 25, symbol: "AMZN",   name: "Amazon.com Inc.",      category: "Акции",  active: true  },
         { id: 26, symbol: "GOOGL",  name: "Alphabet Inc.",        category: "Акции",  active: true  },
         { id: 27, symbol: "META",   name: "Meta Platforms",       category: "Акции",  active: true  },
-        { id: 28, symbol: "AMD",    name: "AMD Inc.",             category: "Акции",  active: false },
-        { id: 29, symbol: "NFLX",   name: "Netflix Inc.",         category: "Акции",  active: false },
-        { id: 30, symbol: "COIN",   name: "Coinbase Global",      category: "Акции",  active: false },
+        { id: 28, symbol: "AMD",    name: "AMD Inc.",             category: "Акции",  active: true  },
+        { id: 29, symbol: "NFLX",   name: "Netflix Inc.",         category: "Акции",  active: true  },
+        { id: 30, symbol: "COIN",   name: "Coinbase Global",      category: "Акции",  active: true  },
       ],
       toggleTool: (id) =>
         set((s) => ({
@@ -337,7 +337,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: "rbhood-admin-store",
-      version: 5,
+      version: 6,
       migrate: () => ({}), // при смене версии сбрасываем — store заполнится дефолтами
     }
   )

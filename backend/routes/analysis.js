@@ -3,6 +3,7 @@ const { getMarketData, calcRSI, calcATR, calcVolumes } = require("../services/ma
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
 const { generateAnalysis } = require("../services/aiAnalysis");
+const { getChartBase64 } = require("../services/chartImg");
 
 // POST /api/analysis
 // body: { symbol: "XAUUSD", category: "forex" | "crypto" | "stocks" }
@@ -39,7 +40,15 @@ router.post("/", async (req, res) => {
     // 4. Новости
     const news = await getNews(symbol, category);
 
-    // 5. AI анализ (BUY/SELL, SL, TP, объяснение)
+    // 5. Скриншот графика из TradingView (Chart IMG)
+    let chartBase64 = null;
+    try {
+      chartBase64 = await getChartBase64(symbol, "D");
+    } catch (e) {
+      console.warn("Chart IMG unavailable:", e.message);
+    }
+
+    // 6. AI анализ (BUY/SELL, SL, TP, объяснение) + Claude Vision
     const aiResult = await generateAnalysis({
       symbol,
       category,
@@ -49,7 +58,7 @@ router.post("/", async (req, res) => {
       atrPct,
       stability,
       priceChange24h,
-      candles: candles.slice(-50), // последние 50 свечей
+      chartBase64,
     });
 
     res.json({

@@ -128,43 +128,100 @@ function isMarketOpen(tab: Tab): boolean {
   return false;
 }
 
-// ─── Mock analysis ────────────────────────────────────────────────────────────
-function generateAnalysis(asset: Asset, t: Record<string, string>): AnalysisResult {
-  const s: Signal[] = ["BUY", "SELL", "HOLD"];
-  const signal = s[asset.symbol.charCodeAt(0) % 3];
-  const score = 58 + (asset.symbol.charCodeAt(0) % 35);
-  const p = parseFloat(asset.price.replace(/,/g, ""));
+// ─── API types ────────────────────────────────────────────────────────────────
+interface TradingPlanEntry {
+  action: string;
+  entryMin: number;
+  entryMax: number;
+  stopLoss: number;
+  takeProfit: number;
+  confidence: number;
+}
+
+interface APIResponse {
+  symbol: string;
+  category: string;
+  currentPrice: number;
+  priceChange24h: number;
+  stability: number;
+  rsi: number;
+  economicContext: string;
+  vol24h: number;
+  vol7d: number;
+  vol1m: number;
+  rsiHistory: number[];
+  priceHistory: number[];
+  tradingPlan: { scalper: TradingPlanEntry; dayTrader: TradingPlanEntry; swingTrader: TradingPlanEntry };
+  technicalAnalysis: string;
+  probableScenarios: string;
+  explanation: string;
+  overallSignal?: string;
+  calendar: unknown[];
+  news: { title: string; url: string; sentiment?: string; time?: string }[];
+  updatedAt: string;
+}
+
+function fmtVol(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+async function fetchAnalysis(symbol: string, category: string): Promise<APIResponse> {
+  const res = await fetch(`${API_URL}/api/analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, category }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+function apiToResult(api: APIResponse, asset: Asset, t: Record<string, string>): AnalysisResult {
+  const signal: Signal =
+    api.overallSignal === "BUY" ? "BUY" : api.overallSignal === "SELL" ? "SELL" : "HOLD";
+  const score = Math.round(
+    signal === "BUY"  ? 55 + api.stability * 3 :
+    signal === "SELL" ? 55 + api.stability * 3 : 50
+  );
+  const plan = api.tradingPlan.dayTrader;
+  const priceStr = api.currentPrice.toFixed(
+    api.currentPrice > 100 ? 2 : api.currentPrice > 1 ? 4 : 6
+  );
+  const fmt = (n: number) => n.toFixed(api.currentPrice > 100 ? 2 : api.currentPrice > 1 ? 4 : 6);
+
   return {
     ticker: asset.symbol,
     signal,
     score,
-    price: asset.price,
-    change: asset.change,
-    changePositive: asset.up,
-    summary:
-      signal === "BUY"
-        ? `${asset.symbol} demonstrates strong upward momentum. RSI at 58 — room to grow. MACD crossed signal line upward. Support level held at key zone.`
-        : signal === "SELL"
-        ? `${asset.symbol} is forming a bearish pattern. Support breakdown confirmed by volume. Stochastic in overbought zone. Recommend taking profit.`
-        : `${asset.symbol} is trading in consolidation. No clear trend — wait for range breakout. Volumes reduced. Recommend observing.`,
+    price: priceStr,
+    change: `${api.priceChange24h >= 0 ? "+" : ""}${api.priceChange24h.toFixed(2)}%`,
+    changePositive: api.priceChange24h >= 0,
+    summary: api.technicalAnalysis,
     targets: [
-      { label: t["db_entry"],   price: asset.price,            color: "#A1A1AA" },
-      { label: t["db_target1"], price: (p * 1.05).toFixed(2),  color: "#02B365" },
-      { label: t["db_target2"], price: (p * 1.10).toFixed(2),  color: "#02B365" },
-      { label: t["db_stop"],    price: (p * 0.97).toFixed(2),  color: "#EF4444" },
+      { label: t["db_entry"],   price: `${fmt(plan.entryMin)} – ${fmt(plan.entryMax)}`, color: "#A1A1AA" },
+      { label: t["db_target1"], price: fmt(plan.takeProfit),  color: "#02B365" },
+      { label: t["db_stop"],    price: fmt(plan.stopLoss),    color: "#EF4444" },
+      { label: "Объём 24h",     price: fmtVol(api.vol24h),   color: "#6366F1" },
     ],
     scenarios: [
-      { label: t["db_bull"],    prob: signal === "BUY"  ? 65 : 20, color: "#02B365" },
-      { label: t["db_neutral"], prob: signal === "HOLD" ? 55 : 20, color: "#F59E0B" },
-      { label: t["db_bear"],    prob: signal === "SELL" ? 65 : 15, color: "#EF4444" },
+      { label: t["db_bull"],    prob: signal === "BUY"  ? 60 : 25, color: "#02B365" },
+      { label: t["db_neutral"], prob: 100 - Math.abs(api.rsi - 50) * 2, color: "#F59E0B" },
+      { label: t["db_bear"],    prob: signal === "SELL" ? 60 : 25, color: "#EF4444" },
     ],
     indicators: [
-      { name: "RSI (14)",   value: signal === "BUY" ? "58.4" : "71.2",                status: signal === "SELL" ? "bear" : "bull" },
-      { name: "MACD",       value: signal === "BUY" ? "+124" : "-89",                 status: signal === "BUY"  ? "bull" : "bear" },
-      { name: "MA 50/200",  value: signal === "BUY" ? "Golden Cross" : "Death Cross", status: signal === "BUY"  ? "bull" : "bear" },
-      { name: "Volume",     value: "Above avg",                                        status: "bull" },
-      { name: "Bollinger",  value: signal === "BUY" ? "Near lower band" : "Near upper", status: signal === "BUY" ? "bull" : "bear" },
-      { name: "Stochastic", value: signal === "SELL" ? "82 / 78" : "42 / 38",         status: signal === "SELL" ? "bear" : "neutral" },
+      { name: "RSI (14)",     value: api.rsi.toFixed(1),    status: api.rsi < 40 ? "bull" : api.rsi > 65 ? "bear" : "neutral" },
+      { name: "Stability",    value: `${api.stability}/10`, status: api.stability >= 7 ? "bull" : api.stability >= 4 ? "neutral" : "bear" },
+      { name: "Context",      value: api.economicContext,   status: api.economicContext === "Bullish" ? "bull" : api.economicContext === "Bearish" ? "bear" : "neutral" },
+      { name: "Vol 7d",       value: fmtVol(api.vol7d),    status: "neutral" },
+      { name: "Vol 1m",       value: fmtVol(api.vol1m),    status: "neutral" },
+      { name: "Confidence",   value: `${plan.confidence}%`, status: plan.confidence >= 70 ? "bull" : plan.confidence >= 50 ? "neutral" : "bear" },
     ],
   };
 }
@@ -244,6 +301,9 @@ export default function DashboardPage() {
   }, [ASSETS, activeSymbols]);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [apiData, setApiData] = useState<APIResponse | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [planTab, setPlanTab] = useState<"scalper" | "dayTrader" | "swingTrader">("dayTrader");
 
   const TAB_LABELS: Record<Tab, string> = {
     forex: t["db_tab_forex"],
@@ -251,14 +311,21 @@ export default function DashboardPage() {
     stocks: t["db_tab_stocks"],
   };
 
-  const analyze = (asset: Asset) => {
+  const analyze = async (asset: Asset) => {
     setSelected(asset);
     setScanning(true);
     setResult(null);
-    setTimeout(() => {
-      setResult(generateAnalysis(asset, t));
+    setApiData(null);
+    setApiError(null);
+    try {
+      const data = await fetchAnalysis(asset.symbol, tab);
+      setApiData(data);
+      setResult(apiToResult(data, asset, t));
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Ошибка");
+    } finally {
       setScanning(false);
-    }, 3200);
+    }
   };
 
   return (
@@ -359,11 +426,23 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
+      {/* Error */}
+      {!scanning && apiError && selected && (
+        <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center py-20 gap-4">
+          <div className="font-exo text-[#EF4444] text-sm">Ошибка: {apiError}</div>
+          <button onClick={() => { setSelected(null); setApiError(null); }}
+            className="font-exo text-xs text-[#444] hover:text-white border border-[#1a1a1a] px-4 py-2 rounded-xl transition-all">
+            Назад
+          </button>
+        </motion.div>
+      )}
+
       {/* Result */}
       {!scanning && result && selected && (
         <motion.div key={result.ticker} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }} className="px-6 py-8 max-w-3xl mx-auto">
 
+          {/* Header card */}
           <div className="rounded-2xl border border-[#1a1a1a] p-6 mb-4" style={{ background: "#111" }}>
             <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
               <div>
@@ -392,9 +471,13 @@ export default function DashboardPage() {
             <div className="border-t border-[#161616] pt-4">
               <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-1.5">{t["db_summary"]}</div>
               <p className="font-exo text-sm text-[#666] leading-relaxed">{result.summary}</p>
+              {apiData?.explanation && (
+                <p className="font-exo text-xs text-[#444] mt-2 leading-relaxed">{apiData.explanation}</p>
+              )}
             </div>
           </div>
 
+          {/* Indicators + Scenarios + Levels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#111" }}>
               <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">{t["db_levels"]}</div>
@@ -435,7 +518,86 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <button onClick={() => { setSelected(null); setResult(null); }}
+          {/* Trading Plan (Scalper / Day / Swing) */}
+          {apiData?.tradingPlan && (
+            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
+              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">Торговый план</div>
+              <div className="flex gap-1 mb-4">
+                {(["scalper", "dayTrader", "swingTrader"] as const).map(pt => (
+                  <button key={pt} onClick={() => setPlanTab(pt)}
+                    className="px-4 py-1.5 rounded-xl text-xs font-exo font-bold transition-all"
+                    style={{ background: planTab === pt ? "#02B365" : "#161616", color: planTab === pt ? "#fff" : "#444" }}>
+                    {pt === "scalper" ? "Скальпер" : pt === "dayTrader" ? "Дей-трейдер" : "Свинг"}
+                  </button>
+                ))}
+              </div>
+              {(() => {
+                const p = apiData.tradingPlan[planTab];
+                const isLong = p.action.includes("BUY");
+                const actionColor = isLong ? "#02B365" : p.action === "WAIT" ? "#F59E0B" : "#EF4444";
+                const fmt = (n: number) => n.toFixed(result.price.includes(".") ? result.price.split(".")[1].length : 2);
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
+                      <div className="font-mono text-[9px] text-[#333] mb-1">СИГНАЛ</div>
+                      <div className="font-orbitron text-sm font-bold" style={{ color: actionColor }}>{p.action.replace("_", " ")}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
+                      <div className="font-mono text-[9px] text-[#333] mb-1">ВХОД</div>
+                      <div className="font-mono text-xs text-white">{fmt(p.entryMin)} – {fmt(p.entryMax)}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
+                      <div className="font-mono text-[9px] text-[#EF4444] mb-1">СТОП-ЛОСС</div>
+                      <div className="font-mono text-xs text-[#EF4444]">{fmt(p.stopLoss)}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
+                      <div className="font-mono text-[9px] text-[#02B365] mb-1">ТЕЙК-ПРОФИТ</div>
+                      <div className="font-mono text-xs text-[#02B365]">{fmt(p.takeProfit)}</div>
+                    </div>
+                    <div className="rounded-xl border border-[#1e1e1e] p-3 md:col-span-2" style={{ background: "#161616" }}>
+                      <div className="font-mono text-[9px] text-[#333] mb-1">УВЕРЕННОСТЬ</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-[#222] overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${p.confidence}%` }} transition={{ duration: 0.8 }}
+                            className="h-full rounded-full"
+                            style={{ background: p.confidence >= 70 ? "#02B365" : p.confidence >= 50 ? "#F59E0B" : "#EF4444" }} />
+                        </div>
+                        <span className="font-mono text-xs text-white">{p.confidence}%</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Probable scenarios text */}
+          {apiData?.probableScenarios && (
+            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
+              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-2">Вероятные сценарии</div>
+              <p className="font-exo text-sm text-[#555] leading-relaxed">{apiData.probableScenarios}</p>
+            </div>
+          )}
+
+          {/* News */}
+          {apiData?.news && apiData.news.length > 0 && (
+            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
+              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">Новости</div>
+              <div className="flex flex-col gap-2">
+                {apiData.news.slice(0, 5).map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-2 p-2.5 rounded-xl border border-[#1e1e1e] hover:border-[#333] transition-all"
+                    style={{ background: "#161616" }}>
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
+                      style={{ background: n.sentiment === "Bullish" ? "#02B365" : n.sentiment === "Bearish" ? "#EF4444" : "#444" }} />
+                    <span className="font-exo text-xs text-[#555] leading-snug">{n.title}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button onClick={() => { setSelected(null); setResult(null); setApiData(null); }}
             className="font-exo text-xs text-[#444] hover:text-white border border-[#1a1a1a] hover:border-[#333] px-4 py-2 rounded-xl transition-all">
             {t["db_back"]}
           </button>

@@ -1,7 +1,9 @@
 "use client";
 import { useStore } from "../../../store/useStore";
+import { useI18n } from "../../components/i18n";
 
 export default function BrokersPage() {
+  const { t } = useI18n();
   const { brokers } = useStore();
   const active = brokers.filter(b => b.active);
   const featured = active.filter(b => b.featured);
@@ -10,8 +12,8 @@ export default function BrokersPage() {
 
   return (
     <div className="px-8 py-10 max-w-3xl mx-auto">
-      <h1 className="font-exo font-bold text-white text-2xl mb-1">Брокеры</h1>
-      <p className="font-exo text-sm text-[#444] mb-8">Наши рекомендованные партнёры</p>
+      <h1 className="font-exo font-bold text-white text-2xl mb-1">{t["br_title"]}</h1>
+      <p className="font-exo text-sm text-[#444] mb-8">{t["br_sub"]}</p>
 
       {sorted.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -21,7 +23,7 @@ export default function BrokersPage() {
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/>
             </svg>
           </div>
-          <div className="font-exo text-sm text-[#444]">Брокеры пока не добавлены</div>
+          <div className="font-exo text-sm text-[#444]">{t["br_empty"]}</div>
         </div>
       )}
 
@@ -34,7 +36,7 @@ export default function BrokersPage() {
             {broker.featured && (
               <div className="absolute top-4 left-6 font-mono text-[8px] font-bold px-2 py-0.5 rounded"
                 style={{ color: "#F59E0B", background: "#F59E0B15" }}>
-                ТОП БРОКЕР
+                {t["br_top"]}
               </div>
             )}
 
@@ -73,7 +75,7 @@ export default function BrokersPage() {
               <a href={broker.link} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 h-9 px-5 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90"
                 style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 2px 12px rgba(2,179,101,0.25)" }}>
-                Создать аккаунт
+                {t["br_create"]}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                 </svg>

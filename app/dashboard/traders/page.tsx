@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useI18n } from "../../components/i18n";
 
 function useCountdown() {
   const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
@@ -58,6 +59,7 @@ const rankStyle = (rank: number) => {
 const PAGE_SIZE = 10;
 
 export default function TradersPage() {
+  const { t } = useI18n();
   const { h, m, s } = useCountdown();
   const pad = (n: number) => String(n).padStart(2, "0");
   const [showAll, setShowAll] = useState(false);
@@ -67,17 +69,17 @@ export default function TradersPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-8">
         <div>
-          <h1 className="font-exo font-bold text-white text-2xl mb-1">Топ Трейдеры</h1>
-          <p className="font-exo text-sm text-[#444]">Лучшие трейдеры платформы</p>
+          <h1 className="font-exo font-bold text-white text-2xl mb-1">{t["td_title"]}</h1>
+          <p className="font-exo text-sm text-[#444]">{t["td_sub"]}</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#02B365] animate-pulse" />
-            <span className="font-mono text-[11px] text-[#02B365]">LIVE</span>
+            <span className="font-mono text-[11px] text-[#02B365]">{t["td_live"]}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#1a1a1a]" style={{ background: "#111" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span className="font-mono text-[11px] text-[#444]">Обновление через</span>
+            <span className="font-mono text-[11px] text-[#444]">{t["td_update_in"]}</span>
             <div className="flex items-center gap-1">
               {[pad(h), pad(m), pad(s)].map((val, i) => (
                 <span key={i} className="flex items-center gap-1">
@@ -95,16 +97,16 @@ export default function TradersPage() {
         style={{ background: "linear-gradient(135deg, #02B36510 0%, #02B36505 100%)" }}>
         <div>
           <div className="font-exo font-bold text-white text-sm mb-1">
-            🏆 Хочешь попасть в этот список?
+            {t["td_banner_title"]}
           </div>
           <div className="font-exo text-xs text-[#555] max-w-md">
-            Зарегистрируйся у нашего партнёра <span className="text-[#02B365] font-bold">FxPro</span> и начни торговать — лучшие трейдеры попадают в топ автоматически.
+            {t["td_banner_pre"]} <span className="text-[#02B365] font-bold">FxPro</span> {t["td_banner_post"]}
           </div>
         </div>
         <a href="#" target="_blank" rel="noopener noreferrer"
           className="flex-shrink-0 inline-flex items-center gap-2 h-10 px-6 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 hover:-translate-y-px"
           style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 16px rgba(2,179,101,0.3)" }}>
-          Создать счёт
+          {t["td_create"]}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </div>
@@ -114,7 +116,7 @@ export default function TradersPage() {
         {/* Table header */}
         <div className="grid grid-cols-[26px_1fr_auto] md:grid-cols-[48px_1fr_140px] gap-2 md:gap-3 px-3 md:px-5 py-3 border-b border-[#1a1a1a]"
           style={{ background: "#0d0d0d" }}>
-          {["#", "Трейдер", "Объём"].map(h => (
+          {["#", t["td_col_trader"], t["td_col_volume"]].map(h => (
             <div key={h} className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{h}</div>
           ))}
         </div>
@@ -142,7 +144,7 @@ export default function TradersPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-exo text-sm font-semibold text-white truncate">{trader.name}</div>
-                  <div className="font-mono text-[10px] text-[#333] whitespace-nowrap">{trader.country} · {trader.days} дней</div>
+                  <div className="font-mono text-[10px] text-[#333] whitespace-nowrap">{trader.country} · {trader.days} {t["td_days"]}</div>
                 </div>
               </div>
 
@@ -163,7 +165,7 @@ export default function TradersPage() {
           style={{ background: "#111" }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-          Ещё
+          {t["td_more"]}
         </motion.button>
       )}
       {showAll && (
@@ -173,21 +175,21 @@ export default function TradersPage() {
           style={{ background: "#111" }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="18 15 12 9 6 15"/></svg>
-          Свернуть
+          {t["td_collapse"]}
         </button>
       )}
 
       {/* Bottom CTA */}
       <div className="mt-6 rounded-2xl border border-[#1a1a1a] p-6 flex flex-col items-center text-center gap-4"
         style={{ background: "#111" }}>
-        <div className="font-exo font-bold text-white text-base">Готов стать частью топа?</div>
+        <div className="font-exo font-bold text-white text-base">{t["td_bottom_title"]}</div>
         <div className="font-exo text-sm text-[#444] max-w-sm">
-          Открой реальный счёт у партнёра <span className="text-white font-semibold">FxPro</span> и торгуй через rbhood ai — лучшие результаты автоматически попадают в рейтинг.
+          {t["td_bottom_pre"]} <span className="text-white font-semibold">FxPro</span> {t["td_bottom_post"]}
         </div>
         <a href="#" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 h-10 px-8 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90"
           style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 16px rgba(2,179,101,0.3)" }}>
-          Создать счёт в FxPro
+          {t["td_create_fxpro"]}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </div>

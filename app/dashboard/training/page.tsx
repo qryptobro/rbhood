@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../../store/useStore";
+import { useI18n } from "../../components/i18n";
 
 function getYoutubeId(url: string) {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
@@ -75,13 +76,14 @@ function VideoModal({ videoId, title, onClose }: { videoId: string; title: strin
 
 // ─── Mentor block (рендерится дважды: десктоп в левой колонке, мобайл — отдельно) ─
 function MentorBlock({ completedCount, total }: { completedCount: number; total: number }) {
+  const { t } = useI18n();
   const unlocked = completedCount >= total;
   return (
     <div className="mt-8">
-      <h2 className="font-exo font-bold text-white text-lg mb-1">Наставник</h2>
-      <p className="font-exo text-sm text-[#444] mb-4">Свяжитесь с наставником в WhatsApp, чтобы получить помощь с первым анализом</p>
+      <h2 className="font-exo font-bold text-white text-lg mb-1">{t["trn_mentor"]}</h2>
+      <p className="font-exo text-sm text-[#444] mb-4">{t["trn_mentor_desc"]}</p>
       {!unlocked && (
-        <p className="font-exo text-xs text-[#444] mb-3">Пройдите все уроки чтобы разблокировать</p>
+        <p className="font-exo text-xs text-[#444] mb-3">{t["trn_mentor_locked"]}</p>
       )}
       <a
         href={unlocked ? "https://wa.me/" : undefined}
@@ -96,13 +98,14 @@ function MentorBlock({ completedCount, total }: { completedCount: number; total:
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
           <path d="M12 0C5.373 0 0 5.373 0 12c0 2.135.561 4.137 1.535 5.874L.057 23.886l6.198-1.453A11.944 11.944 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.651-.516-5.166-1.415l-.371-.22-3.679.862.924-3.574-.242-.381A9.956 9.956 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
         </svg>
-        Написать наставнику
+        {t["trn_mentor_btn"]}
       </a>
     </div>
   );
 }
 
 export default function TrainingPage() {
+  const { t } = useI18n();
   const { courses } = useStore();
   const course = courses[0];
   const MODULES = (course?.modules ?? []).map((m) => ({
@@ -147,7 +150,7 @@ export default function TrainingPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 flex flex-col md:flex-row gap-6 md:items-start md:justify-center">
         {/* Left: modules grid (+ наставник на десктопе) */}
         <div className="min-w-0 w-full md:w-[580px]">
-          <h1 className="font-exo font-bold text-white text-xl md:text-2xl mb-6">{course?.title ?? "Обучение"}</h1>
+          <h1 className="font-exo font-bold text-white text-xl md:text-2xl mb-6">{course?.title ?? t["trn_default"]}</h1>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {MODULES.map(mod => {
@@ -185,7 +188,7 @@ export default function TrainingPage() {
 
                   {/* Info */}
                   <div className="px-4 py-3">
-                    <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1">Модуль {mod.id}</div>
+                    <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1">{t["trn_module"]} {mod.id}</div>
                     <div className="font-exo text-sm font-semibold text-white mb-3 leading-tight group-hover:text-[#02B365] transition-colors">
                       {mod.title}
                     </div>
@@ -198,7 +201,7 @@ export default function TrainingPage() {
                         <button
                           onClick={e => { e.stopPropagation(); toggleComplete(mod.id); }}
                           className="font-mono text-[9px] text-[#444] hover:text-[#02B365] transition-colors">
-                          Отметить пройденным
+                          {t["trn_mark_done"]}
                         </button>
                       )}
                     </div>
@@ -218,8 +221,8 @@ export default function TrainingPage() {
         <div className="w-full md:w-[280px] flex-shrink-0 md:sticky md:top-4">
           <div className="rounded-2xl border border-[#02B36540] overflow-hidden" style={{ background: "#111", boxShadow: "0 0 0 1px #02B36520" }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a1a]">
-              <span className="font-exo font-bold text-white text-sm">Прогресс</span>
-              <span className="font-mono text-[11px] text-[#444]">{completedCount}/{total} пройдено</span>
+              <span className="font-exo font-bold text-white text-sm">{t["trn_progress"]}</span>
+              <span className="font-mono text-[11px] text-[#444]">{completedCount}/{total} {t["trn_done"]}</span>
             </div>
 
             {/* Progress bar */}

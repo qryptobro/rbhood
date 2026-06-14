@@ -153,7 +153,7 @@ interface APIResponse {
   priceHistory: number[];
   tradingPlan: { scalper: TradingPlanEntry; dayTrader: TradingPlanEntry; swingTrader: TradingPlanEntry };
   technicalAnalysis: string;
-  probableScenarios: string;
+  probableScenarios: string | { Bullish?: string; Bearish?: string; [key: string]: string | undefined };
   explanation: string;
   overallSignal?: string;
   calendar: unknown[];
@@ -575,7 +575,21 @@ export default function DashboardPage() {
           {apiData?.probableScenarios && (
             <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
               <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-2">Вероятные сценарии</div>
-              <p className="font-exo text-sm text-[#555] leading-relaxed">{apiData.probableScenarios}</p>
+              {typeof apiData.probableScenarios === "string" ? (
+                <p className="font-exo text-sm text-[#555] leading-relaxed">{apiData.probableScenarios}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {Object.entries(apiData.probableScenarios).map(([key, val]) => (
+                    <div key={key} className="flex gap-2">
+                      <span className="font-mono text-[10px] font-bold flex-shrink-0 mt-0.5"
+                        style={{ color: key === "Bullish" ? "#02B365" : key === "Bearish" ? "#EF4444" : "#F59E0B" }}>
+                        {key.toUpperCase()}:
+                      </span>
+                      <span className="font-exo text-sm text-[#555] leading-relaxed">{val}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

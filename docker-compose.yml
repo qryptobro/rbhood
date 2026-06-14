@@ -1,16 +1,20 @@
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:4000
-    depends_on:
-      - backend
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: rbhood
+      POSTGRES_USER: rbhood
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rbhood_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rbhood"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -22,4 +26,26 @@ services:
       - NODE_ENV=production
       - PORT=4000
       - FRONTEND_URL=http://localhost:3000
+      - DATABASE_URL=postgresql://rbhood:${POSTGRES_PASSWORD:-rbhood_secret}@postgres:5432/rbhood
+      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+    command: sh -c "npx prisma migrate deploy && node index.js"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

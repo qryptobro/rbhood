@@ -263,13 +263,13 @@ function ScanningLoader({ lang }: { lang: string }) {
   }, [steps.length]);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto px-8 py-16">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto px-5 md:px-8 py-10 md:py-16">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-10">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex items-center gap-3 mb-8 md:mb-10">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
           <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <span className="font-exo text-2xl text-[#666]">{SCAN_TITLE[lang] || SCAN_TITLE.ru}</span>
+        <span className="font-exo text-lg md:text-2xl text-[#666]">{SCAN_TITLE[lang] || SCAN_TITLE.ru}</span>
       </div>
 
       {/* Steps + рейл со свечой */}
@@ -299,7 +299,7 @@ function ScanningLoader({ lang }: { lang: string }) {
           const active = i === step;
           return (
             <div key={i} style={{ height: ROW_H }} className="flex items-center gap-3">
-              <span className="font-exo text-xl transition-colors duration-300"
+              <span className="font-exo text-base md:text-xl transition-colors duration-300"
                 style={{ color: done ? "#ccc" : active ? "#fff" : "#333" }}>
                 {s}
               </span>
@@ -481,8 +481,8 @@ export default function DashboardPage() {
       {/* Asset picker */}
       {!selected && !scanning && (
         <motion.div key="picker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }}
-          className="flex flex-col items-center px-6 pt-14 pb-10">
-          <h1 className="font-exo font-bold text-white text-2xl mb-1.5">{t["db_title"]}</h1>
+          className="flex flex-col items-center px-4 md:px-6 pt-8 md:pt-14 pb-10">
+          <h1 className="font-exo font-bold text-white text-xl md:text-2xl mb-1.5 text-center">{t["db_title"]}</h1>
           <p className="font-exo text-sm text-[#444] mb-8">{t["db_sub"]}</p>
 
           {/* Tabs */}
@@ -598,7 +598,7 @@ export default function DashboardPage() {
 
         return (
         <motion.div key={result.ticker} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }} className="px-6 py-8 max-w-5xl mx-auto">
+          transition={{ duration: 0.35 }} className="px-4 md:px-6 py-6 md:py-8 max-w-5xl mx-auto">
 
           {/* ─── HEADER: иконка + имя + крупная цена ─── */}
           <div className="flex flex-col items-center text-center mb-10">
@@ -616,11 +616,11 @@ export default function DashboardPage() {
               )}
               <div className="text-left">
                 <div className="font-mono text-[11px] text-[#555] uppercase tracking-wider">{selected.symbol}</div>
-                <div className="font-exo text-3xl font-bold text-white leading-tight">{selected.name}</div>
+                <div className="font-exo text-2xl md:text-3xl font-bold text-white leading-tight">{selected.name}</div>
               </div>
             </div>
-            <div className="flex items-baseline gap-3 flex-wrap justify-center">
-              <span className="font-orbitron text-5xl font-bold text-white">{cp >= 100 ? `$${cp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${cp.toFixed(dec)}`}</span>
+            <div className="flex items-baseline gap-2 md:gap-3 flex-wrap justify-center">
+              <span className="font-orbitron text-3xl md:text-5xl font-bold text-white break-all">{cp >= 100 ? `$${cp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${cp.toFixed(dec)}`}</span>
               <span className="font-mono text-sm font-bold" style={{ color: topColor }}>
                 {result.change} <span className="text-[#555] font-normal">24h</span>
               </span>

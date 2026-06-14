@@ -29,7 +29,7 @@ services:
       - DATABASE_URL=postgresql://rbhood:${POSTGRES_PASSWORD:-rbhood_secret}@postgres:5432/rbhood
       - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
       - ALPHA_VANTAGE_KEY=${ALPHA_VANTAGE_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - CHART_IMG_KEY=${CHART_IMG_KEY}
     depends_on:
       postgres:

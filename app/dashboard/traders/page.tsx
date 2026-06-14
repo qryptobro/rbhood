@@ -63,7 +63,7 @@ export default function TradersPage() {
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? TRADERS : TRADERS.slice(0, PAGE_SIZE);
   return (
-    <div className="px-8 py-8 max-w-4xl mx-auto">
+    <div className="px-4 md:px-8 py-8 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap mb-8">
         <div>
@@ -112,7 +112,7 @@ export default function TradersPage() {
       {/* Table */}
       <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden" style={{ background: "#111" }}>
         {/* Table header */}
-        <div className="grid grid-cols-[48px_1fr_140px] gap-3 px-5 py-3 border-b border-[#1a1a1a]"
+        <div className="grid grid-cols-[26px_1fr_auto] md:grid-cols-[48px_1fr_140px] gap-2 md:gap-3 px-3 md:px-5 py-3 border-b border-[#1a1a1a]"
           style={{ background: "#0d0d0d" }}>
           {["#", "Трейдер", "Объём"].map(h => (
             <div key={h} className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{h}</div>
@@ -127,7 +127,7 @@ export default function TradersPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.25, delay: i * 0.04 }}
-              className="grid grid-cols-[48px_1fr_140px] gap-3 px-5 py-3.5 border-b border-[#111] hover:bg-[#141414] transition-colors items-center"
+              className="grid grid-cols-[26px_1fr_auto] md:grid-cols-[48px_1fr_140px] gap-2 md:gap-3 px-3 md:px-5 py-3.5 border-b border-[#111] hover:bg-[#141414] transition-colors items-center"
             >
               {/* Rank */}
               <div className="font-orbitron text-sm font-bold" style={{ color: rs.color }}>
@@ -142,12 +142,12 @@ export default function TradersPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-exo text-sm font-semibold text-white truncate">{trader.name}</div>
-                  <div className="font-mono text-[10px] text-[#333]">{trader.country} · {trader.days} дней</div>
+                  <div className="font-mono text-[10px] text-[#333] whitespace-nowrap">{trader.country} · {trader.days} дней</div>
                 </div>
               </div>
 
               {/* Volume */}
-              <div className="font-orbitron text-sm font-bold" style={{ color: "#02B365" }}>{trader.volume}</div>
+              <div className="font-orbitron text-xs md:text-sm font-bold whitespace-nowrap text-right md:text-left" style={{ color: "#02B365" }}>{trader.volume}</div>
             </motion.div>
           );
         })}

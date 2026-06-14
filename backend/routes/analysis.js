@@ -4,7 +4,6 @@ const { computeIndicators } = require("../services/indicators");
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
 const { generateAnalysis } = require("../services/aiAnalysis");
-const { getThreeCharts } = require("../services/chartImg");
 
 // Таймфрейм каждого плана
 const PLAN_TF = { scalper: "5m", dayTrader: "15m", swingTrader: "4h" };
@@ -48,15 +47,22 @@ router.post("/", async (req, res) => {
     const priceChange24h = dailyInd.pct_change_last_candle;
     const economicContext = rsi > 55 ? "Bullish" : rsi < 45 ? "Bearish" : "Neutral";
 
-    // 2. Индикаторы по 3 торговым таймфреймам (1m/5m/1h), считаем из реальных свечей
-    const tfData = {};
+    // 2. Свечи + индикаторы по 3 торговым таймфреймам (5m/15m/4h)
+    const tfData = {};      // индикаторы
+    const candlesByTf = {}; // сырые свечи для отрисовки графика на фронте
     for (const [plan, tf] of Object.entries(PLAN_TF)) {
       try {
         const candles = await getCandles(symbol, tf, 200);
         tfData[plan] = computeIndicators(candles);
+        // lightweight-charts: время в секундах
+        candlesByTf[plan] = candles.map(c => ({
+          time: Math.floor(c.time / 1000),
+          open: c.open, high: c.high, low: c.low, close: c.close,
+        }));
       } catch (e) {
         console.warn(`Indicators ${plan}(${tf}) failed:`, e.message);
         tfData[plan] = null;
+        candlesByTf[plan] = null;
       }
     }
 
@@ -64,18 +70,10 @@ router.post("/", async (req, res) => {
     const calendar = await getEconomicCalendar(symbol);
     const news = await getNews(symbol, category);
 
-    // 4. Скриншоты графиков 1m/5m/1h
-    let charts = { scalper: null, dayTrader: null, swingTrader: null };
-    try {
-      charts = await getThreeCharts(symbol);
-    } catch (e) {
-      console.warn("Chart IMG unavailable:", e.message);
-    }
-
-    // 5. AI: получает ГОТОВЫЕ числа по каждому ТФ, решает направление + уверенность + объяснение
+    // 4. AI: получает ГОТОВЫЕ числа по каждому ТФ, решает направление + уверенность + объяснение
     const ai = await generateAnalysis({
       symbol, category, lang: lang || "ru",
-      daily: dailyInd, tfData, charts,
+      daily: dailyInd, tfData,
     });
 
     // 6. Собираем торговый план: направление от Claude + ATR-уровни из расчёта (не выдуманные)
@@ -126,7 +124,7 @@ router.post("/", async (req, res) => {
 
       calendar,
       news,
-      charts,
+      candlesByTf,   // свечи 5m/15m/4h для графика
 
       updatedAt: new Date().toISOString(),
     });

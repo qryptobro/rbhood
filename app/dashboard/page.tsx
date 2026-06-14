@@ -5,6 +5,7 @@ import { useI18n } from "../components/i18n";
 import { ASSET_ICONS } from "./components/AssetIcons";
 import { useStore } from "../../store/useStore";
 import { useHistory } from "./context/HistoryContext";
+import CandleChart, { type Candle } from "./components/CandleChart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Signal = "BUY" | "SELL" | "HOLD";
@@ -159,7 +160,11 @@ interface APIResponse {
   overallSignal?: string;
   calendar: unknown[];
   news: { title: string; url: string; sentiment?: string; time?: string }[];
-  charts: { scalper: string | null; dayTrader: string | null; swingTrader: string | null } | null;
+  candlesByTf: {
+    scalper: Candle[] | null;
+    dayTrader: Candle[] | null;
+    swingTrader: Candle[] | null;
+  } | null;
   updatedAt: string;
 }
 
@@ -485,8 +490,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Charts — 3 таймфрейма */}
-          {apiData?.charts && (
+          {/* График из MT5-свечей — 3 таймфрейма */}
+          {apiData?.candlesByTf && (
             <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-4">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]" style={{ background: "#111" }}>
                 <div className="flex items-center gap-2">
@@ -506,12 +511,8 @@ export default function DashboardPage() {
                   })}
                 </div>
               </div>
-              {apiData.charts[planTab] ? (
-                <img
-                  src={`data:image/png;base64,${apiData.charts[planTab]}`}
-                  alt={`${selected?.symbol} ${planTab} chart`}
-                  className="w-full block"
-                />
+              {apiData.candlesByTf[planTab] && apiData.candlesByTf[planTab]!.length > 0 ? (
+                <CandleChart candles={apiData.candlesByTf[planTab]!} />
               ) : (
                 <div className="flex items-center justify-center h-32 font-exo text-xs text-[#333]">График недоступен</div>
               )}

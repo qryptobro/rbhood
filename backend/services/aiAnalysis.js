@@ -59,7 +59,7 @@ function tfSnapshot(ind) {
   };
 }
 
-async function generateAnalysis({ symbol, category, lang, daily, tfData, charts }) {
+async function generateAnalysis({ symbol, category, lang, daily, tfData }) {
   if (!OPENROUTER_KEY) {
     return fallback(tfData, daily);
   }
@@ -67,9 +67,8 @@ async function generateAnalysis({ symbol, category, lang, daily, tfData, charts 
   const langName = lang === "kz" ? "Kazakh" : lang === "en" ? "English" : "Russian";
 
   const system = `You are an elite institutional trader and quantitative analyst.
-You receive REAL pre-computed indicators (RSI, MACD, Bollinger, EMA 20/50/200, ATR, Stochastic, ADX) for 3 timeframes.
+You receive REAL pre-computed indicators (RSI, MACD, Bollinger, EMA 20/50/200, ATR, Stochastic, ADX) for 3 timeframes (5m scalper, 15m day trader, 4h swing trader).
 The numbers are already calculated correctly — NEVER invent prices or indicator values, only INTERPRET them.
-Charts (if provided): image 1 = 5m (scalper), image 2 = 15m (day trader), image 3 = 4h (swing trader) — use them ONLY to spot visual patterns the numbers miss.
 Decide direction per timeframe from the indicator consensus. Confidence MUST reflect how many indicators agree (use the consensus.agreement_pct as a strong anchor).
 If signals are mixed (agreement near 50%), choose WAIT with low confidence — do not force a direction.
 Write all text fields ("reasoning", "technicalAnalysis", "probableScenarios", "explanation") in ${langName}.
@@ -87,10 +86,6 @@ Respond with raw JSON only — no markdown, no backticks.`;
   };
 
   const content = [];
-  if (charts?.scalper)     content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.scalper}` } });
-  if (charts?.dayTrader)   content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.dayTrader}` } });
-  if (charts?.swingTrader) content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.swingTrader}` } });
-
   content.push({
     type: "text",
     text: `Analyze ${symbol} (${category}). Pre-computed indicators per timeframe:

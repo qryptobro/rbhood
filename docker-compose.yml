@@ -30,7 +30,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
       - ALPHA_VANTAGE_KEY=${ALPHA_VANTAGE_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - CHART_IMG_KEY=${CHART_IMG_KEY}
+      - MT5_BRIDGE_URL=${MT5_BRIDGE_URL:-http://host.docker.internal:5001}
     depends_on:
       postgres:
         condition: service_healthy

@@ -117,7 +117,7 @@ export default function TrainingPage() {
 
       <div className="px-4 md:px-8 py-6 md:py-8 flex flex-col md:flex-row gap-6 md:items-start md:justify-center">
         {/* Left: modules grid */}
-        <div className="min-w-0 w-full md:w-[580px] order-2 md:order-1">
+        <div className="min-w-0 w-full md:w-[580px]">
           <h1 className="font-exo font-bold text-white text-xl md:text-2xl mb-6">{course?.title ?? "Обучение"}</h1>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -207,7 +207,7 @@ export default function TrainingPage() {
         </div>
 
         {/* Right: progress panel */}
-        <div className="w-full md:w-[280px] flex-shrink-0 md:sticky md:top-4 order-1 md:order-2">
+        <div className="w-full md:w-[280px] flex-shrink-0 md:sticky md:top-4">
           <div className="rounded-2xl border border-[#02B36540] overflow-hidden" style={{ background: "#111", boxShadow: "0 0 0 1px #02B36520" }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a1a]">
               <span className="font-exo font-bold text-white text-sm">Прогресс</span>

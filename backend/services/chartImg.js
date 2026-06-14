@@ -35,9 +35,7 @@ function getChartBase64(symbol, interval = "1D") {
       studies:  JSON.stringify(["RSI@tv-basicstudies", "MACD@tv-basicstudies", "BB@tv-basicstudies"]),
     });
 
-    const url = `https://api.chart-img.com/v1/tradingview/advanced-chart?${params}`;
-
-    https.get(url, (res) => {
+    https.get(`https://api.chart-img.com/v1/tradingview/advanced-chart?${params}`, (res) => {
       if (res.statusCode !== 200) {
         let err = "";
         res.on("data", d => (err += d));
@@ -51,4 +49,15 @@ function getChartBase64(symbol, interval = "1D") {
   });
 }
 
-module.exports = { getChartBase64 };
+// Получаем 3 графика параллельно: 1m (scalper), 5m (dayTrader), 1h (swingTrader)
+async function getThreeCharts(symbol) {
+  const safe = (p) => p.catch((e) => { console.warn("Chart IMG warn:", e.message); return null; });
+  const [scalper, dayTrader, swingTrader] = await Promise.all([
+    safe(getChartBase64(symbol, "1m")),
+    safe(getChartBase64(symbol, "5m")),
+    safe(getChartBase64(symbol, "1h")),
+  ]);
+  return { scalper, dayTrader, swingTrader };
+}
+
+module.exports = { getChartBase64, getThreeCharts };

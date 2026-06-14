@@ -3,7 +3,7 @@ const { getMarketData, calcRSI, calcATR, calcVolumes } = require("../services/ma
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
 const { generateAnalysis } = require("../services/aiAnalysis");
-const { getChartBase64 } = require("../services/chartImg");
+const { getThreeCharts } = require("../services/chartImg");
 
 // POST /api/analysis
 // body: { symbol: "XAUUSD", category: "forex" | "crypto" | "stocks" }
@@ -40,15 +40,15 @@ router.post("/", async (req, res) => {
     // 4. Новости
     const news = await getNews(symbol, category);
 
-    // 5. Скриншот графика из TradingView (Chart IMG)
-    let chartBase64 = null;
+    // 5. Скриншоты графиков: 1m (scalper), 5m (dayTrader), 1h (swingTrader)
+    let charts = { scalper: null, dayTrader: null, swingTrader: null };
     try {
-      chartBase64 = await getChartBase64(symbol, "1D");
+      charts = await getThreeCharts(symbol);
     } catch (e) {
       console.warn("Chart IMG unavailable:", e.message);
     }
 
-    // 6. AI анализ (BUY/SELL, SL, TP, объяснение) + Claude Vision
+    // 6. AI анализ + Claude Vision (передаём все 3 графика)
     const aiResult = await generateAnalysis({
       symbol,
       category,
@@ -58,7 +58,7 @@ router.post("/", async (req, res) => {
       atrPct,
       stability,
       priceChange24h,
-      chartBase64,
+      charts,
       lang: lang || "ru",
     });
 
@@ -95,7 +95,7 @@ router.post("/", async (req, res) => {
       // Доп.данные
       calendar,
       news,
-      chartBase64: chartBase64 || null,
+      charts,
 
       updatedAt: new Date().toISOString(),
     });

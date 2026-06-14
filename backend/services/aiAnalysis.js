@@ -45,10 +45,11 @@ function callOpenRouter(messages, systemPrompt) {
   });
 }
 
-async function generateAnalysis({ symbol, category, currentPrice, rsi, atr, atrPct, stability, priceChange24h, chartBase64, lang }) {
+async function generateAnalysis({ symbol, category, currentPrice, rsi, atr, atrPct, stability, priceChange24h, charts, lang }) {
   if (!OPENROUTER_KEY) {
     return getFallbackAnalysis(symbol, currentPrice, rsi, atr);
   }
+  const chartBase64 = charts?.scalper || charts?.dayTrader || charts?.swingTrader || null;
 
   const langInstruction =
     lang === "ru" ? "Respond in Russian language. All text fields must be in Russian." :
@@ -62,17 +63,22 @@ Always respond with valid JSON only — no markdown fences, no extra text, just 
 
   const userContent = [];
 
-  // Картинка — если есть, ставим первой
-  if (chartBase64) {
-    userContent.push({
-      type: "image_url",
-      image_url: { url: `data:image/png;base64,${chartBase64}` },
-    });
+  // 3 графика: 1m → scalper, 5m → dayTrader, 1h → swingTrader
+  if (charts?.scalper) {
+    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.scalper}` } });
   }
+  if (charts?.dayTrader) {
+    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.dayTrader}` } });
+  }
+  if (charts?.swingTrader) {
+    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.swingTrader}` } });
+  }
+
+  const hasCharts = charts?.scalper || charts?.dayTrader || charts?.swingTrader;
 
   userContent.push({
     type: "text",
-    text: `Analyze this ${symbol} (${category}) TradingView chart.
+    text: `Analyze ${symbol} (${category}) using ${hasCharts ? "the 3 FxPro TradingView charts provided (image 1 = 1m scalper, image 2 = 5m day trader, image 3 = 1h swing trader)" : "market data below"}.
 
 Market context:
 - Current price: ${currentPrice}
@@ -81,7 +87,7 @@ Market context:
 - Market stability: ${stability}/10
 - 24h change: ${priceChange24h >= 0 ? "+" : ""}${priceChange24h.toFixed(2)}%
 
-${chartBase64 ? "Study the chart carefully: price action, RSI panel, MACD crossovers, Bollinger Bands position, key support/resistance levels, trend direction." : "Use the market data above for analysis."}
+${hasCharts ? "Analyze each timeframe separately:\n- 1m chart → scalper signals (entry/SL/TP tight)\n- 5m chart → day trader signals (medium range)\n- 1h chart → swing trader signals (wider SL/TP)" : "Use the market data above for analysis."}
 
 Return ONLY this JSON object:
 {

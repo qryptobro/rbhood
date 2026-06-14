@@ -159,7 +159,7 @@ interface APIResponse {
   overallSignal?: string;
   calendar: unknown[];
   news: { title: string; url: string; sentiment?: string; time?: string }[];
-  chartBase64: string | null;
+  charts: { scalper: string | null; dayTrader: string | null; swingTrader: string | null } | null;
   updatedAt: string;
 }
 
@@ -486,22 +486,36 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Chart */}
-          {apiData?.chartBase64 && (
+          {/* Charts — 3 таймфрейма */}
+          {apiData?.charts && (
             <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-4">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]" style={{ background: "#111" }}>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#02B365]" />
-                  <span className="font-mono text-[10px] text-[#333] uppercase tracking-widest">TradingView Chart · {selected?.symbol}</span>
+                  <span className="font-mono text-[10px] text-[#333] uppercase tracking-widest">FxPro · {selected?.symbol}</span>
                 </div>
-                <span className="font-mono text-[9px] text-[#222]">Daily</span>
+                <div className="flex gap-1">
+                  {(["scalper", "dayTrader", "swingTrader"] as const).map((pt) => {
+                    const label = pt === "scalper" ? "1m" : pt === "dayTrader" ? "5m" : "1h";
+                    return (
+                      <button key={pt} onClick={() => setPlanTab(pt)}
+                        className="px-2.5 py-0.5 rounded-lg font-mono text-[10px] font-bold transition-all"
+                        style={{ background: planTab === pt ? "#02B365" : "#1a1a1a", color: planTab === pt ? "#fff" : "#444" }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <img
-                src={`data:image/png;base64,${apiData.chartBase64}`}
-                alt={`${selected?.symbol} chart`}
-                className="w-full block"
-                style={{ maxHeight: 420, objectFit: "cover" }}
-              />
+              {apiData.charts[planTab] ? (
+                <img
+                  src={`data:image/png;base64,${apiData.charts[planTab]}`}
+                  alt={`${selected?.symbol} ${planTab} chart`}
+                  className="w-full block"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-32 font-exo text-xs text-[#333]">График недоступен</div>
+              )}
             </div>
           )}
 

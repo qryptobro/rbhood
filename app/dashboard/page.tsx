@@ -132,10 +132,10 @@ function isMarketOpen(tab: Tab): boolean {
 // ─── API types ────────────────────────────────────────────────────────────────
 interface TradingPlanEntry {
   action: string;
-  entryMin: number;
-  entryMax: number;
-  stopLoss: number;
-  takeProfit: number;
+  entryMin: number | null;
+  entryMax: number | null;
+  stopLoss: number | null;
+  takeProfit: number | null;
   confidence: number;
 }
 
@@ -193,10 +193,9 @@ function apiToResult(api: APIResponse, asset: Asset, t: Record<string, string>):
     signal === "SELL" ? 55 + api.stability * 3 : 50
   );
   const plan = api.tradingPlan.dayTrader;
-  const priceStr = api.currentPrice.toFixed(
-    api.currentPrice > 100 ? 2 : api.currentPrice > 1 ? 4 : 6
-  );
-  const fmt = (n: number) => n.toFixed(api.currentPrice > 100 ? 2 : api.currentPrice > 1 ? 4 : 6);
+  const cp = api.currentPrice ?? 0;
+  const priceStr = cp.toFixed(cp > 100 ? 2 : cp > 1 ? 4 : 6);
+  const fmt = (n: number | null) => n == null ? "—" : n.toFixed(api.currentPrice > 100 ? 2 : api.currentPrice > 1 ? 4 : 6);
 
   return {
     ticker: asset.symbol,
@@ -577,7 +576,7 @@ export default function DashboardPage() {
                 const p = apiData.tradingPlan[planTab];
                 const isLong = p.action.includes("BUY");
                 const actionColor = isLong ? "#02B365" : p.action === "WAIT" ? "#F59E0B" : "#EF4444";
-                const fmt = (n: number) => n.toFixed(result.price.includes(".") ? result.price.split(".")[1].length : 2);
+                const fmt = (n: number | null) => n == null ? "—" : n.toFixed(result.price.includes(".") ? result.price.split(".")[1].length : 2);
                 return (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>

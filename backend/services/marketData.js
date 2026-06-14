@@ -1,77 +1,38 @@
-const YahooFinance = require("yahoo-finance2").default;
-const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+// ─── Источник данных: MT5 мост (FxPro) ───────────────────────────────────────
+// Python-сервис mt5-bridge/server.py отдаёт OHLCV из терминала FxPro MT5.
+const BRIDGE_URL = process.env.MT5_BRIDGE_URL || "http://127.0.0.1:5001";
 
-// ─── Маппинг символов в Yahoo Finance тикеры ─────────────────────────────────
-const SYMBOL_MAP = {
-  // Форекс + металлы
-  XAUUSD: "GC=F",      // Gold Futures (точнее чем XAUUSD=X)
-  XAGUSD: "SI=F",      // Silver Futures
-  EURUSD: "EURUSD=X",
-  GBPUSD: "GBPUSD=X",
-  USDJPY: "JPY=X",
-  AUDUSD: "AUDUSD=X",
-  USDCHF: "CHF=X",
-  NZDUSD: "NZDUSD=X",
-  USDCAD: "CAD=X",
-  AUDJPY: "AUDJPY=X",
-  // Крипто
-  BTCUSDT:  "BTC-USD",
-  ETHUSDT:  "ETH-USD",
-  BNBUSDT:  "BNB-USD",
-  SOLUSDT:  "SOL-USD",
-  XRPUSDT:  "XRP-USD",
-  ADAUSDT:  "ADA-USD",
-  DOGEUSDT: "DOGE-USD",
-  AVAXUSDT: "AVAX-USD",
-  DOTUSDT:  "DOT-USD",
-  LINKUSDT: "LINK-USD",
-  // Акции
-  AAPL: "AAPL", TSLA: "TSLA", NVDA: "NVDA",
-  MSFT: "MSFT", AMZN: "AMZN", GOOGL: "GOOGL",
-  META: "META", AMD: "AMD",   NFLX: "NFLX", COIN: "COIN",
-};
-
-function getYahooSymbol(symbol) {
-  return SYMBOL_MAP[symbol] || symbol;
+// ─── Получаем свечи нужного таймфрейма ───────────────────────────────────────
+// tf: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w"
+async function getCandles(symbol, tf = "1d", n = 300) {
+  const url = `${BRIDGE_URL}/candles?symbol=${encodeURIComponent(symbol)}&tf=${tf}&n=${n}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`MT5 bridge ${res.status}: ${err.error || "no data"} (${symbol})`);
+  }
+  const data = await res.json();
+  return data.candles || [];
 }
 
-// ─── Получаем исторические свечи (daily) ─────────────────────────────────────
-async function getMarketData(symbol) {
-  const ticker = getYahooSymbol(symbol);
-  const endDate   = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 365); // год назад
-
-  const result = await yahooFinance.chart(ticker, {
-    period1: startDate,
-    period2: endDate,
-    interval: "1d",
-  });
-
-  const quotes = result.quotes || [];
-  return quotes
-    .filter(q => q.open && q.high && q.low && q.close)
-    .map(q => ({
-      time:   new Date(q.date).getTime(),
-      open:   q.open,
-      high:   q.high,
-      low:    q.low,
-      close:  q.close,
-      volume: q.volume || 0,
-    }));
+// Совместимость со старым API: дневные свечи
+async function getMarketData(symbol, tf = "1d") {
+  return getCandles(symbol, tf, 300);
 }
 
-// ─── Текущая цена + метаданные ────────────────────────────────────────────────
+// ─── Текущая цена + изменение из свечей ───────────────────────────────────────
 async function getQuote(symbol) {
-  const ticker = getYahooSymbol(symbol);
-  const quote  = await yahooFinance.quote(ticker);
+  const candles = await getCandles(symbol, "1d", 30);
+  const last = candles[candles.length - 1] || {};
+  const prev = candles[candles.length - 2] || {};
+  const change = prev.close ? ((last.close - prev.close) / prev.close) * 100 : 0;
   return {
-    currentPrice:    quote.regularMarketPrice,
-    priceChange24h:  quote.regularMarketChangePercent,
-    vol24h:          (quote.regularMarketVolume || 0) * (quote.regularMarketPrice || 0),
-    marketCap:       quote.marketCap || 0,
-    high52w:         quote.fiftyTwoWeekHigh,
-    low52w:          quote.fiftyTwoWeekLow,
+    currentPrice:   last.close,
+    priceChange24h: change,
+    vol24h:         (last.volume || 0) * (last.close || 0),
+    marketCap:      0,
+    high52w:        Math.max(...candles.map(c => c.high)),
+    low52w:         Math.min(...candles.map(c => c.low)),
   };
 }
 
@@ -117,4 +78,4 @@ function calcVolumes(candles, currentPrice) {
   };
 }
 
-module.exports = { getMarketData, getQuote, calcRSI, calcATR, calcVolumes, getYahooSymbol };
+module.exports = { getMarketData, getCandles, getQuote, calcRSI, calcATR, calcVolumes };

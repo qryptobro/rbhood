@@ -14,8 +14,8 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1. Получаем рыночные данные (свечи OHLCV)
-    const candles = await getMarketData(symbol, category);
+    // 1. Получаем рыночные данные (дневные свечи OHLCV из FxPro MT5)
+    const candles = await getMarketData(symbol, "1d");
     if (!candles || candles.length < 20) {
       return res.status(502).json({ error: "Not enough market data" });
     }

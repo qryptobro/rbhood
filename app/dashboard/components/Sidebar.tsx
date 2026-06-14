@@ -93,8 +93,39 @@ interface SidebarProps {
 
 const sigColor = { BUY: "#02B365", SELL: "#EF4444", HOLD: "#F59E0B" };
 
+// Относительное время от метки id (Date.now())
+function relativeTime(ts: number, now: number, lang: string): string {
+  const sec = Math.max(0, Math.floor((now - ts) / 1000));
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (lang === "en") {
+    if (sec < 60) return "just now";
+    if (min < 60) return `${min} min ago`;
+    if (hr < 24) return `${hr}h ago`;
+    return `${day}d ago`;
+  }
+  if (lang === "kz") {
+    if (sec < 60) return "жаңа ғана";
+    if (min < 60) return `${min} мин бұрын`;
+    if (hr < 24) return `${hr} сағ бұрын`;
+    return `${day} күн бұрын`;
+  }
+  // ru
+  if (sec < 60) return "только что";
+  if (min < 60) return `${min} мин назад`;
+  if (hr < 24) return `${hr} ч назад`;
+  return `${day} дн назад`;
+}
+
 export default function Sidebar({ history, onDeleteHistory }: SidebarProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  // тикаем раз в 30с, чтобы относительное время обновлялось
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <aside className="w-[200px] flex-shrink-0 flex flex-col border-r border-[#181818] overflow-hidden h-full" style={{ background: "#111" }}>
@@ -130,7 +161,7 @@ export default function Sidebar({ history, onDeleteHistory }: SidebarProps) {
               <div className="font-exo text-sm font-semibold text-white group-hover:text-[#02B365] transition-colors mb-0.5 truncate">{h.ticker}</div>
               <div className="flex items-center gap-1.5 text-[#444]">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span className="font-exo text-[11px]">just now · {h.time}</span>
+                <span className="font-exo text-[11px]">{relativeTime(h.id, now, lang)} · {h.time}</span>
               </div>
             </div>
             <button

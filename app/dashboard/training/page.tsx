@@ -115,9 +115,9 @@ export default function TrainingPage() {
         )}
       </AnimatePresence>
 
-      <div className="px-4 md:px-8 py-6 md:py-8 flex flex-col md:flex-row gap-6 md:items-start md:justify-center">
-        {/* Left: modules grid */}
-        <div className="min-w-0 w-full md:w-[580px]">
+      <div className="px-4 md:px-8 py-6 md:py-8 max-w-[900px] mx-auto flex flex-col md:flex-row md:flex-wrap gap-6 items-start">
+        {/* Modules grid */}
+        <div className="min-w-0 w-full md:w-[580px] order-1">
           <h1 className="font-exo font-bold text-white text-xl md:text-2xl mb-6">{course?.title ?? "Обучение"}</h1>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -178,9 +178,11 @@ export default function TrainingPage() {
               );
             })}
           </div>
+        </div>
 
-          {/* Mentor */}
-          <div className="mt-8">
+        {/* Mentor (на мобиле — после прогресса) */}
+        <div className="w-full md:w-[580px] order-3">
+          <div className="mt-0 md:mt-8">
             <h2 className="font-exo font-bold text-white text-lg mb-1">Наставник</h2>
             <p className="font-exo text-sm text-[#444] mb-4">Свяжитесь с наставником в WhatsApp, чтобы получить помощь с первым анализом</p>
             {completedCount < total && (
@@ -206,8 +208,8 @@ export default function TrainingPage() {
           </div>
         </div>
 
-        {/* Right: progress panel */}
-        <div className="w-full md:w-[280px] flex-shrink-0 md:sticky md:top-4">
+        {/* Progress panel (на мобиле — между модулями и наставником) */}
+        <div className="w-full md:w-[280px] flex-shrink-0 md:sticky md:top-4 order-2">
           <div className="rounded-2xl border border-[#02B36540] overflow-hidden" style={{ background: "#111", boxShadow: "0 0 0 1px #02B36520" }}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a1a]">
               <span className="font-exo font-bold text-white text-sm">Прогресс</span>

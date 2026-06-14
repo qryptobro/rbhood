@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useI18n } from "../components/i18n";
 import { ASSET_ICONS } from "./components/AssetIcons";
@@ -427,6 +427,17 @@ export default function DashboardPage() {
     }
   };
 
+  // При смене языка — пере-запускаем анализ, чтобы AI-текст пришёл на новом языке
+  const prevLang = useRef(lang);
+  useEffect(() => {
+    if (prevLang.current === lang) return;
+    prevLang.current = lang;
+    if (selected && (apiData || apiError)) {
+      analyze(selected);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
   return (
     <AnimatePresence mode="wait">
       {/* Asset picker */}
@@ -579,51 +590,52 @@ export default function DashboardPage() {
           </div>
 
           {/* ─── KEY FIGURES ─── */}
-          <SectionHeading>Key figures</SectionHeading>
+          <SectionHeading>{t["res_key_figures"]}</SectionHeading>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
-            <FigureCard title="Market stability" value={`${apiData.stability}/10`} valueColor={topColor}
+            <FigureCard title={t["res_market_stability"]} value={`${apiData.stability}/10`} valueColor={topColor}
               data={apiData.priceHistory} color={topColor}
-              desc="Обратная величина волатильности (ATR%). Чем выше — тем спокойнее рынок." />
-            <FigureCard title="RSI" value={`${Math.round(apiData.rsi)}`} valueColor={topColor}
+              desc={t["res_stability_desc"]} />
+            <FigureCard title={t["res_rsi"]} value={`${Math.round(apiData.rsi)}`} valueColor={topColor}
               data={apiData.rsiHistory} color={topColor}
-              desc="Тренд RSI для зон перекупленности / перепроданности." />
-            <FigureCard title="Economic context" value={apiData.economicContext} valueColor={ctxColor}
-              data={apiData.rsiHistory} color={ctxColor}
-              desc={`RSI(14): ${apiData.rsi} · 24h: ${apiData.priceChange24h > 0 ? "+" : ""}${apiData.priceChange24h}% · Стабильность ${apiData.stability}/10`} />
-            <FigureCard title="Volume 24h" value={fmtVol(apiData.vol24h)} data={apiData.volumeHistory.slice(-12)} color="#5a6470"
-              desc="Объём торгов за последние 24 часа." />
-            <FigureCard title="Volume 7d" value={fmtVol(apiData.vol7d)} data={apiData.volumeHistory.slice(-20)} color="#5a6470"
-              desc="Объём торгов за последние 7 дней." />
-            <FigureCard title="Volume 1M" value={fmtVol(apiData.vol1m)} data={apiData.volumeHistory} color="#5a6470"
-              desc="Объём торгов за последний месяц." />
+              desc={t["res_rsi_desc"]} />
+            <FigureCard title={t["res_econ_context"]}
+              value={apiData.economicContext === "Bullish" ? t["res_bullish"] : apiData.economicContext === "Bearish" ? t["res_bearish"] : t["res_neutral"]}
+              valueColor={ctxColor} data={apiData.rsiHistory} color={ctxColor}
+              desc={`RSI(14): ${apiData.rsi} · 24h: ${apiData.priceChange24h > 0 ? "+" : ""}${apiData.priceChange24h}% · ${t["res_market_stability"]} ${apiData.stability}/10`} />
+            <FigureCard title={t["res_vol24h"]} value={fmtVol(apiData.vol24h)} data={apiData.volumeHistory.slice(-12)} color="#5a6470"
+              desc={t["res_vol24h_desc"]} />
+            <FigureCard title={t["res_vol7d"]} value={fmtVol(apiData.vol7d)} data={apiData.volumeHistory.slice(-20)} color="#5a6470"
+              desc={t["res_vol7d_desc"]} />
+            <FigureCard title={t["res_vol1m"]} value={fmtVol(apiData.vol1m)} data={apiData.volumeHistory} color="#5a6470"
+              desc={t["res_vol1m_desc"]} />
           </div>
 
           {/* ─── ADAPTED TRADING PLAN ─── */}
           <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <SectionHeading>Adapted trading plan</SectionHeading>
+            <SectionHeading>{t["res_trading_plan"]}</SectionHeading>
             <div className="flex items-center gap-1 p-1 rounded-2xl border border-[#1a1a1a]" style={{ background: "#121212" }}>
               {(["scalper", "dayTrader", "swingTrader"] as const).map(pt => (
                 <button key={pt} onClick={() => setPlanTab(pt)}
                   className="px-4 py-1.5 rounded-xl font-exo font-bold text-xs transition-all"
                   style={{ background: planTab === pt ? "#02B365" : "transparent", color: planTab === pt ? "#fff" : "#555" }}>
-                  {pt === "scalper" ? "Scalper" : pt === "dayTrader" ? "Day Trader" : "Swing Trader"}
+                  {pt === "scalper" ? t["res_scalper"] : pt === "dayTrader" ? t["res_day"] : t["res_swing"]}
                 </button>
               ))}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <PlanCard value={plan.action.replace(/_/g, " ")} label="Тип сделки" color={planActionColor} />
-            <PlanCard value={plan.entryMin == null ? "—" : `${pf(plan.entryMin)}–${pf(plan.entryMax)}`} label="Цена входа" />
-            <PlanCard value={pf(plan.stopLoss)} label="Стоп-лосс" color="#EF4444" />
-            <PlanCard value={pf(plan.takeProfit)} label="Тейк-профит" color="#02B365" />
+            <PlanCard value={plan.action.replace(/_/g, " ")} label={t["res_trade_type"]} color={planActionColor} />
+            <PlanCard value={plan.entryMin == null ? "—" : `${pf(plan.entryMin)}–${pf(plan.entryMax)}`} label={t["res_entry_price"]} />
+            <PlanCard value={pf(plan.stopLoss)} label={t["res_sl"]} color="#EF4444" />
+            <PlanCard value={pf(plan.takeProfit)} label={t["res_tp"]} color="#02B365" />
           </div>
 
           {/* Explanations + confidence accordion */}
-          <Accordion title="Объяснение"
+          <Accordion title={t["res_explanation"]}
             icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-[#444]">УВЕРЕННОСТЬ</span>
+                <span className="font-mono text-[10px] text-[#444]">{t["res_confidence"].toUpperCase()}</span>
                 <div className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden max-w-[200px]">
                   <div className="h-full rounded-full" style={{ width: `${plan.confidence}%`, background: plan.confidence >= 70 ? "#02B365" : plan.confidence >= 50 ? "#F59E0B" : "#EF4444" }} />
                 </div>
@@ -663,12 +675,12 @@ export default function DashboardPage() {
           )}
 
           {/* ─── OTHER INFORMATION ─── */}
-          <SectionHeading>Прочая информация</SectionHeading>
-          <Accordion title="Технический анализ"
+          <SectionHeading>{t["res_other_info"]}</SectionHeading>
+          <Accordion title={t["res_tech_analysis"]}
             icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>}>
             {apiData.technicalAnalysis}
           </Accordion>
-          <Accordion title="Вероятные сценарии"
+          <Accordion title={t["res_scenarios"]}
             icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>}>
             {typeof apiData.probableScenarios === "string" ? apiData.probableScenarios : (
               <div className="flex flex-col gap-2">
@@ -685,7 +697,7 @@ export default function DashboardPage() {
           {/* ─── ECONOMIC ANNOUNCEMENTS ─── */}
           {apiData.calendar && apiData.calendar.length > 0 && (
             <div className="mt-8">
-              <SectionHeading>Экономические события</SectionHeading>
+              <SectionHeading>{t["res_econ_events"]}</SectionHeading>
               <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
                 {apiData.calendar.map((ev, i) => {
                   const high = ev.impact === "High";
@@ -709,7 +721,7 @@ export default function DashboardPage() {
           {/* ─── NEWS ─── */}
           {apiData.news && apiData.news.length > 0 && (
             <div className="mt-8">
-              <SectionHeading>Новости</SectionHeading>
+              <SectionHeading>{t["res_news"]}</SectionHeading>
               <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
                 {apiData.news.slice(0, 8).map((n, i) => (
                   <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
@@ -735,7 +747,7 @@ export default function DashboardPage() {
 
           {/* disclaimer + back */}
           <div className="text-center mt-10 mb-4">
-            <p className="font-exo text-xs text-[#444]">Анализ сгенерирован ИИ. Используйте как инструмент, но проводите собственное исследование перед сделками.</p>
+            <p className="font-exo text-xs text-[#444]">{t["res_disclaimer"]}</p>
           </div>
           <div className="flex justify-center">
             <button onClick={() => { setSelected(null); setResult(null); setApiData(null); }}

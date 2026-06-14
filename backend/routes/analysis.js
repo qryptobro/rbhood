@@ -95,6 +95,7 @@ router.post("/", async (req, res) => {
       // Доп.данные
       calendar,
       news,
+      chartBase64: chartBase64 || null,
 
       updatedAt: new Date().toISOString(),
     });

@@ -159,6 +159,7 @@ interface APIResponse {
   overallSignal?: string;
   calendar: unknown[];
   news: { title: string; url: string; sentiment?: string; time?: string }[];
+  chartBase64: string | null;
   updatedAt: string;
 }
 
@@ -484,6 +485,25 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
+          {/* Chart */}
+          {apiData?.chartBase64 && (
+            <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-4">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]" style={{ background: "#111" }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#02B365]" />
+                  <span className="font-mono text-[10px] text-[#333] uppercase tracking-widest">TradingView Chart · {selected?.symbol}</span>
+                </div>
+                <span className="font-mono text-[9px] text-[#222]">Daily</span>
+              </div>
+              <img
+                src={`data:image/png;base64,${apiData.chartBase64}`}
+                alt={`${selected?.symbol} chart`}
+                className="w-full block"
+                style={{ maxHeight: 420, objectFit: "cover" }}
+              />
+            </div>
+          )}
 
           {/* Indicators + Scenarios + Levels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">

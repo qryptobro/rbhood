@@ -243,38 +243,76 @@ function SignalBadge({ signal, large }: { signal: Signal; large?: boolean }) {
   );
 }
 
-// ─── Scanning loader ──────────────────────────────────────────────────────────
-function ScanningLoader({ ticker }: { ticker: string }) {
+// ─── Scanning loader (свеча спускается по шагам) ──────────────────────────────
+const SCAN_STEPS: Record<string, string[]> = {
+  ru: ["Инициализация анализа", "Сбор данных", "Проверка качества данных", "Расчёт индикаторов", "Очистка и нормализация", "Обогащение данными", "Макроэкономический анализ"],
+  kz: ["Талдауды бастау", "Деректерді жинау", "Дерек сапасын тексеру", "Индикаторларды есептеу", "Тазалау және нормалау", "Деректерді байыту", "Макроэкономикалық талдау"],
+  en: ["Initializing analysis", "Collecting data", "Verifying data quality", "Feature engineering", "Cleaning and normalization", "Data enrichment", "Macro-economic analysis"],
+};
+const SCAN_TITLE: Record<string, string> = {
+  ru: "Идёт анализ графика…", kz: "График талдануда…", en: "Chart analysis in progress…",
+};
+const ROW_H = 70;
+
+function ScanningLoader({ lang }: { lang: string }) {
+  const steps = SCAN_STEPS[lang] || SCAN_STEPS.ru;
   const [step, setStep] = useState(0);
-  const steps = ["Загрузка данных...", "Анализ индикаторов...", "Поиск паттернов...", "Оценка риска...", "Генерация сигнала..."];
   useEffect(() => {
-    const id = setInterval(() => setStep(s => Math.min(s + 1, steps.length - 1)), 600);
+    const id = setInterval(() => setStep(s => Math.min(s + 1, steps.length - 1)), 800);
     return () => clearInterval(id);
-  }, []);
+  }, [steps.length]);
+
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-20">
-      <div className="relative">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-          className="w-14 h-14 rounded-full border-2 border-transparent"
-          style={{ borderTopColor: "#02B365", borderRightColor: "#02B36530" }} />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-orbitron text-[9px] font-bold text-[#02B365]">{ticker.slice(0, 6)}</span>
-        </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto px-8 py-16">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-10">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <span className="font-exo text-2xl text-[#666]">{SCAN_TITLE[lang] || SCAN_TITLE.ru}</span>
       </div>
-      <div className="flex flex-col items-center gap-1.5">
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-center gap-2 font-mono text-xs"
-            style={{ color: i < step ? "#02B365" : i === step ? "#fff" : "#2a2a2a" }}>
-            {i < step
-              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-              : i === step
-              ? <motion.div animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="w-2.5 h-2.5 rounded-full bg-[#02B365]" />
-              : <div className="w-2.5 h-2.5 rounded-full border border-[#222]" />}
-            {s}
-          </div>
-        ))}
+
+      {/* Steps + рейл со свечой */}
+      <div className="relative pl-10">
+        {/* вертикальный рейл */}
+        <div className="absolute left-[10px] w-[2px] bg-[#1c1c1c]" style={{ top: ROW_H / 2, height: (steps.length - 1) * ROW_H }} />
+
+        {/* спускающаяся свеча */}
+        <motion.div
+          className="absolute left-[2px]"
+          animate={{ y: step * ROW_H + ROW_H / 2 - 18 }}
+          transition={{ type: "spring", stiffness: 110, damping: 16 }}
+        >
+          <motion.svg width="18" height="36" viewBox="0 0 18 36"
+            animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: Infinity }}>
+            {/* фитиль */}
+            <line x1="9" y1="2" x2="9" y2="9" stroke="#02B365" strokeWidth="2" />
+            <line x1="9" y1="27" x2="9" y2="34" stroke="#02B365" strokeWidth="2" />
+            {/* тело */}
+            <rect x="3" y="9" width="12" height="18" rx="2" fill="#02B365" />
+          </motion.svg>
+        </motion.div>
+
+        {/* шаги */}
+        {steps.map((s, i) => {
+          const done = i < step;
+          const active = i === step;
+          return (
+            <div key={i} style={{ height: ROW_H }} className="flex items-center gap-3">
+              <span className="font-exo text-xl transition-colors duration-300"
+                style={{ color: done ? "#ccc" : active ? "#fff" : "#333" }}>
+                {s}
+              </span>
+              {done && (
+                <motion.svg initial={{ scale: 0 }} animate={{ scale: 1 }} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </motion.svg>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -532,7 +570,7 @@ export default function DashboardPage() {
       {/* Scanning */}
       {scanning && selected && (
         <motion.div key="scanning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <ScanningLoader ticker={selected.symbol} />
+          <ScanningLoader lang={lang} />
         </motion.div>
       )}
 

@@ -23,9 +23,10 @@ function callOpenRouter(messages, systemPrompt) {
         "Content-Length": Buffer.byteLength(body),
       },
     }, (res) => {
-      let data = "";
-      res.on("data", c => (data += c));
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
       res.on("end", () => {
+        const data = Buffer.concat(chunks).toString("utf8");
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) return reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));

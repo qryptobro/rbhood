@@ -1,98 +1,81 @@
-const https = require("https");
+const YahooFinance = require("yahoo-finance2").default;
+const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
-const AV_KEY = process.env.ALPHA_VANTAGE_KEY;
+// ─── Маппинг символов в Yahoo Finance тикеры ─────────────────────────────────
+const SYMBOL_MAP = {
+  // Форекс + металлы
+  XAUUSD: "GC=F",      // Gold Futures (точнее чем XAUUSD=X)
+  XAGUSD: "SI=F",      // Silver Futures
+  EURUSD: "EURUSD=X",
+  GBPUSD: "GBPUSD=X",
+  USDJPY: "JPY=X",
+  AUDUSD: "AUDUSD=X",
+  USDCHF: "CHF=X",
+  NZDUSD: "NZDUSD=X",
+  USDCAD: "CAD=X",
+  AUDJPY: "AUDJPY=X",
+  // Крипто
+  BTCUSDT:  "BTC-USD",
+  ETHUSDT:  "ETH-USD",
+  BNBUSDT:  "BNB-USD",
+  SOLUSDT:  "SOL-USD",
+  XRPUSDT:  "XRP-USD",
+  ADAUSDT:  "ADA-USD",
+  DOGEUSDT: "DOGE-USD",
+  AVAXUSDT: "AVAX-USD",
+  DOTUSDT:  "DOT-USD",
+  LINKUSDT: "LINK-USD",
+  // Акции
+  AAPL: "AAPL", TSLA: "TSLA", NVDA: "NVDA",
+  MSFT: "MSFT", AMZN: "AMZN", GOOGL: "GOOGL",
+  META: "META", AMD: "AMD",   NFLX: "NFLX", COIN: "COIN",
+};
 
-// ─── HTTP helper ──────────────────────────────────────────────────────────────
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = "";
-      res.on("data", chunk => (data += chunk));
-      res.on("end", () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error("JSON parse error")); }
-      });
-    }).on("error", reject);
+function getYahooSymbol(symbol) {
+  return SYMBOL_MAP[symbol] || symbol;
+}
+
+// ─── Получаем исторические свечи (daily) ─────────────────────────────────────
+async function getMarketData(symbol) {
+  const ticker = getYahooSymbol(symbol);
+  const endDate   = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 365); // год назад
+
+  const result = await yahooFinance.chart(ticker, {
+    period1: startDate,
+    period2: endDate,
+    interval: "1d",
   });
-}
 
-// ─── Binance (крипто) ─────────────────────────────────────────────────────────
-async function getBinanceCandles(symbol) {
-  // symbol: BTCUSDT, ETHUSDT, etc.
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=200`;
-  const data = await fetchJson(url);
-  return data.map(k => ({
-    time:   k[0],
-    open:   parseFloat(k[1]),
-    high:   parseFloat(k[2]),
-    low:    parseFloat(k[3]),
-    close:  parseFloat(k[4]),
-    volume: parseFloat(k[5]),
-  }));
-}
-
-// ─── Alpha Vantage (форекс + металлы) — FX_DAILY (бесплатно) ────────────────
-async function getForexCandles(symbol) {
-  const from = symbol.slice(0, 3); // EUR, GBP, XAU, XAG...
-  const to   = symbol.slice(3, 6); // USD, JPY...
-  const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${from}&to_symbol=${to}&outputsize=full&apikey=${AV_KEY}`;
-  const data = await fetchJson(url);
-  const series = data["Time Series FX (Daily)"];
-  if (!series) throw new Error(`Alpha Vantage forex error: ${JSON.stringify(data).slice(0, 200)}`);
-
-  return Object.entries(series)
-    .sort(([a], [b]) => new Date(a) - new Date(b))
-    .slice(-200)
-    .map(([time, v]) => ({
-      time:   new Date(time).getTime(),
-      open:   parseFloat(v["1. open"]),
-      high:   parseFloat(v["2. high"]),
-      low:    parseFloat(v["3. low"]),
-      close:  parseFloat(v["4. close"]),
-      volume: 0,
+  const quotes = result.quotes || [];
+  return quotes
+    .filter(q => q.open && q.high && q.low && q.close)
+    .map(q => ({
+      time:   new Date(q.date).getTime(),
+      open:   q.open,
+      high:   q.high,
+      low:    q.low,
+      close:  q.close,
+      volume: q.volume || 0,
     }));
 }
 
-// ─── Alpha Vantage (акции) — TIME_SERIES_DAILY (бесплатно) ───────────────────
-async function getStockCandles(symbol) {
-  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full&apikey=${AV_KEY}`;
-  const data = await fetchJson(url);
-  const series = data["Time Series (Daily)"];
-  if (!series) throw new Error(`Alpha Vantage stocks error: ${JSON.stringify(data).slice(0, 200)}`);
-
-  return Object.entries(series)
-    .sort(([a], [b]) => new Date(a) - new Date(b))
-    .slice(-200)
-    .map(([time, v]) => ({
-      time:   new Date(time).getTime(),
-      open:   parseFloat(v["1. open"]),
-      high:   parseFloat(v["2. high"]),
-      low:    parseFloat(v["3. low"]),
-      close:  parseFloat(v["4. close"]),
-      volume: parseFloat(v["5. volume"]),
-    }));
+// ─── Текущая цена + метаданные ────────────────────────────────────────────────
+async function getQuote(symbol) {
+  const ticker = getYahooSymbol(symbol);
+  const quote  = await yahooFinance.quote(ticker);
+  return {
+    currentPrice:    quote.regularMarketPrice,
+    priceChange24h:  quote.regularMarketChangePercent,
+    vol24h:          (quote.regularMarketVolume || 0) * (quote.regularMarketPrice || 0),
+    marketCap:       quote.marketCap || 0,
+    high52w:         quote.fiftyTwoWeekHigh,
+    low52w:          quote.fiftyTwoWeekLow,
+  };
 }
 
-// Металлы (XAUUSD, XAGUSD) используют тот же FX_DAILY
-const getCommodityCandles = getForexCandles;
-
-// ─── Router ───────────────────────────────────────────────────────────────────
-async function getMarketData(symbol, category) {
-  if (category === "crypto") {
-    return getBinanceCandles(symbol); // symbol уже BTCUSDT
-  }
-  if (category === "forex") {
-    const commodities = ["XAUUSD", "XAGUSD"];
-    if (commodities.includes(symbol)) return getCommodityCandles(symbol);
-    return getForexCandles(symbol);
-  }
-  if (category === "stocks") {
-    return getStockCandles(symbol);
-  }
-  throw new Error("Unknown category: " + category);
-}
-
-// ─── Indicators ───────────────────────────────────────────────────────────────
+// ─── Индикаторы ───────────────────────────────────────────────────────────────
 function calcRSI(candles, period = 14) {
   const closes = candles.map(c => c.close);
   if (closes.length < period + 1) return 50;
@@ -106,8 +89,7 @@ function calcRSI(candles, period = 14) {
   const avgGain = gains / period;
   const avgLoss = losses / period;
   if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return 100 - 100 / (1 + rs);
+  return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
 function calcATR(candles, period = 14) {
@@ -120,19 +102,19 @@ function calcATR(candles, period = 14) {
   return recent.reduce((a, b) => a + b, 0) / period;
 }
 
-function calcVolumes(candles) {
-  const now = candles[candles.length - 1];
-  const h24 = candles.slice(-24);
-  const d7  = candles.slice(-168);
-  const d30 = candles.slice(-720);
+function calcVolumes(candles, currentPrice) {
+  // Daily свечи: 1 день = 1 свеча
+  const d1  = candles.slice(-1);
+  const d7  = candles.slice(-7);
+  const d30 = candles.slice(-30);
 
-  const sum = arr => arr.reduce((a, c) => a + c.volume * c.close, 0);
+  const sum = arr => arr.reduce((a, c) => a + (c.volume * c.close || 0), 0);
 
   return {
-    vol24h: sum(h24),
+    vol24h: sum(d1),
     vol7d:  sum(d7),
     vol1m:  sum(d30),
   };
 }
 
-module.exports = { getMarketData, calcRSI, calcATR, calcVolumes };
+module.exports = { getMarketData, getQuote, calcRSI, calcATR, calcVolumes, getYahooSymbol };

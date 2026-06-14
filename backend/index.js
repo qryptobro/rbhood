@@ -20,6 +20,7 @@ if (process.env.DATABASE_URL) {
 }
 
 app.use("/api/analysis", require("./routes/analysis"));
+app.use("/api/quotes",   require("./routes/quotes"));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

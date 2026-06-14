@@ -34,16 +34,6 @@ interface AnalysisResult {
 }
 
 // ─── Assets data ──────────────────────────────────────────────────────────────
-function rndChange(): { change: string; up: boolean } {
-  const v = (Math.random() * 6 - 2).toFixed(2);
-  const up = parseFloat(v) >= 0;
-  return { change: `${up ? "+" : ""}${v}%`, up };
-}
-
-function rndPrice(base: number, decimals: number): string {
-  const jitter = base * (1 + (Math.random() * 0.04 - 0.02));
-  return jitter.toFixed(decimals);
-}
 
 const BASE_ASSETS: Record<Tab, Omit<Asset, "price" | "change" | "up">[]> = {
   forex: [
@@ -84,24 +74,28 @@ const BASE_ASSETS: Record<Tab, Omit<Asset, "price" | "change" | "up">[]> = {
   ],
 };
 
-const FOREX_BASES:  number[] = [2341, 29.8,  1.084, 1.271, 98.4,  157.3, 0.655, 0.892, 0.601, 1.364];
-const FOREX_DEC:   number[] = [2,    2,     4,     4,     2,     2,     4,     4,     4,     4    ];
-const CRYPTO_BASES: number[] = [67800, 3240, 182,   604,   0.531, 0.442, 0.158, 37.8,  7.64,  14.2  ];
-const CRYPTO_DEC:  number[] = [0,    0,     2,     2,     4,     4,     4,     2,     3,     2    ];
-const STOCK_BASES:  number[] = [189,   177,   924,   415,   178,   198,   527,   648,   162,   538   ];
-const STOCK_DEC:   number[] = [2,    2,     2,     2,     2,     2,     2,     2,     2,     2    ];
-
+// Базовые карточки с плейсхолдером (реальные цифры подгружаются из /api/quotes)
 function buildAssets(): Record<Tab, Asset[]> {
-  const make = (
-    bases: number[], decimals: number[],
-    items: Omit<Asset, "price" | "change" | "up">[]
-  ): Asset[] => items.map((a, i) => ({ ...a, price: rndPrice(bases[i], decimals[i]), ...rndChange() }));
-
+  const make = (items: Omit<Asset, "price" | "change" | "up">[]): Asset[] =>
+    items.map(a => ({ ...a, price: "—", change: "…", up: true }));
   return {
-    forex:  make(FOREX_BASES,  FOREX_DEC,  BASE_ASSETS.forex),
-    crypto: make(CRYPTO_BASES, CRYPTO_DEC, BASE_ASSETS.crypto),
-    stocks: make(STOCK_BASES,  STOCK_DEC,  BASE_ASSETS.stocks),
+    forex:  make(BASE_ASSETS.forex),
+    crypto: make(BASE_ASSETS.crypto),
+    stocks: make(BASE_ASSETS.stocks),
   };
+}
+
+// Тянем реальные котировки из бэкенда (24ч-изменение из дневных свечей MT5)
+const QUOTES_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+async function fetchQuotes(symbols: string[]): Promise<Record<string, { price: number; change: number; up: boolean } | null>> {
+  const res = await fetch(`${QUOTES_API}/api/quotes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbols }),
+  });
+  if (!res.ok) return {};
+  const data = await res.json();
+  return data.quotes || {};
 }
 
 // ─── Market hours ─────────────────────────────────────────────────────────────
@@ -361,7 +355,28 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<Tab>("forex");
   const [selected, setSelected] = useState<Asset | null>(null);
   const [ASSETS, setASSETS] = useState<Record<Tab, Asset[]> | null>(null);
-  useEffect(() => { setASSETS(buildAssets()); }, []);
+  useEffect(() => {
+    const base = buildAssets();
+    setASSETS(base);
+    // подгружаем реальные котировки из MT5
+    const allSymbols = [...base.forex, ...base.crypto, ...base.stocks].map(a => a.symbol);
+    fetchQuotes(allSymbols).then(quotes => {
+      setASSETS(prev => {
+        if (!prev) return prev;
+        const apply = (arr: Asset[]): Asset[] => arr.map(a => {
+          const q = quotes[a.symbol];
+          if (!q) return a;
+          return {
+            ...a,
+            price: q.price.toString(),
+            change: `${q.change >= 0 ? "+" : ""}${q.change.toFixed(2)}%`,
+            up: q.up,
+          };
+        });
+        return { forex: apply(prev.forex), crypto: apply(prev.crypto), stocks: apply(prev.stocks) };
+      });
+    }).catch(() => {});
+  }, []);
 
   // Фильтруем активы по активным инструментам из store
   const TAB_MAP: Record<Tab, string> = { forex: "Форекс", crypto: "Крипто", stocks: "Акции" };

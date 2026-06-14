@@ -101,7 +101,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 initial={{ x: -210 }} animate={{ x: 0 }} exit={{ x: -210 }}
                 transition={{ type: "tween", duration: 0.25 }}
                 className="fixed inset-y-0 left-0 z-50 w-[200px]"
-                onClick={() => setSidebarOpen(false)}
               >
                 <Sidebar history={history} onDeleteHistory={deleteHistory} />
               </motion.div>

@@ -1,12 +1,32 @@
 const router = require("express").Router();
-const { getMarketData, calcRSI, calcATR, calcVolumes } = require("../services/marketData");
+const { getMarketData, getCandles, calcRSI, calcVolumes } = require("../services/marketData");
+const { computeIndicators } = require("../services/indicators");
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
 const { generateAnalysis } = require("../services/aiAnalysis");
 const { getThreeCharts } = require("../services/chartImg");
 
+// Таймфрейм каждого плана
+const PLAN_TF = { scalper: "1m", dayTrader: "5m", swingTrader: "1h" };
+
+// Из детерминированных ATR-уровней + направления собираем план
+function buildPlan(action, levels, confidence) {
+  const isLong = action.includes("BUY");
+  if (action === "WAIT") {
+    return { action, entryMin: levels.entry_min, entryMax: levels.entry_max, stopLoss: null, takeProfit: null, confidence };
+  }
+  return {
+    action,
+    entryMin: levels.entry_min,
+    entryMax: levels.entry_max,
+    stopLoss:  isLong ? levels.stop_loss_long  : levels.stop_loss_short,
+    takeProfit: isLong ? levels.take_profit_long : levels.take_profit_short,
+    confidence,
+  };
+}
+
 // POST /api/analysis
-// body: { symbol: "XAUUSD", category: "forex" | "crypto" | "stocks" }
+// body: { symbol, category, lang }
 router.post("/", async (req, res) => {
   const { symbol, category, lang } = req.body;
   if (!symbol || !category) {
@@ -14,33 +34,37 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1. Получаем рыночные данные (дневные свечи OHLCV из FxPro MT5)
-    const candles = await getMarketData(symbol, "1d");
-    if (!candles || candles.length < 20) {
-      return res.status(502).json({ error: "Not enough market data" });
+    // 1. Дневные свечи — для заголовочных метрик (RSI, стабильность, объёмы, спарклайны)
+    const daily = await getMarketData(symbol, "1d");
+    if (!daily || daily.length < 50) {
+      return res.status(502).json({ error: "Недостаточно дневных данных (нужно ≥50 свечей)" });
     }
-
-    // 2. Считаем индикаторы
-    const rsi    = calcRSI(candles, 14);
-    const atr    = calcATR(candles, 14);
-    const currentPrice = candles[candles.length - 1].close;
-    const { vol24h, vol7d, vol1m } = calcVolumes(candles);
-
-    // Market stability = обратное от ATR%
-    const atrPct  = (atr / currentPrice) * 100;
-    const stability = Math.max(0, Math.min(10, 10 - atrPct * 2)).toFixed(1);
-
-    // Economic context (Bullish / Bearish / Neutral)
-    const priceChange24h = ((currentPrice - candles[candles.length - 24]?.close) / candles[candles.length - 24]?.close * 100) || 0;
+    const dailyInd = computeIndicators(daily);
+    const currentPrice = dailyInd.last_close;
+    const rsi = dailyInd.indicators.rsi_14;
+    const atrPct = (dailyInd.indicators.atr_14 / currentPrice) * 100;
+    const stability = +Math.max(0, Math.min(10, 10 - atrPct * 2)).toFixed(1);
+    const { vol24h, vol7d, vol1m } = calcVolumes(daily);
+    const priceChange24h = dailyInd.pct_change_last_candle;
     const economicContext = rsi > 55 ? "Bullish" : rsi < 45 ? "Bearish" : "Neutral";
 
-    // 3. Экономический календарь
-    const calendar = await getEconomicCalendar(symbol);
+    // 2. Индикаторы по 3 торговым таймфреймам (1m/5m/1h), считаем из реальных свечей
+    const tfData = {};
+    for (const [plan, tf] of Object.entries(PLAN_TF)) {
+      try {
+        const candles = await getCandles(symbol, tf, 200);
+        tfData[plan] = computeIndicators(candles);
+      } catch (e) {
+        console.warn(`Indicators ${plan}(${tf}) failed:`, e.message);
+        tfData[plan] = null;
+      }
+    }
 
-    // 4. Новости
+    // 3. Календарь + новости
+    const calendar = await getEconomicCalendar(symbol);
     const news = await getNews(symbol, category);
 
-    // 5. Скриншоты графиков: 1m (scalper), 5m (dayTrader), 1h (swingTrader)
+    // 4. Скриншоты графиков 1m/5m/1h
     let charts = { scalper: null, dayTrader: null, swingTrader: null };
     try {
       charts = await getThreeCharts(symbol);
@@ -48,19 +72,26 @@ router.post("/", async (req, res) => {
       console.warn("Chart IMG unavailable:", e.message);
     }
 
-    // 6. AI анализ + Claude Vision (передаём все 3 графика)
-    const aiResult = await generateAnalysis({
-      symbol,
-      category,
-      currentPrice,
-      rsi,
-      atr,
-      atrPct,
-      stability,
-      priceChange24h,
-      charts,
-      lang: lang || "ru",
+    // 5. AI: получает ГОТОВЫЕ числа по каждому ТФ, решает направление + уверенность + объяснение
+    const ai = await generateAnalysis({
+      symbol, category, lang: lang || "ru",
+      daily: dailyInd, tfData, charts,
     });
+
+    // 6. Собираем торговый план: направление от Claude + ATR-уровни из расчёта (не выдуманные)
+    const tradingPlan = {};
+    for (const plan of Object.keys(PLAN_TF)) {
+      const ind = tfData[plan];
+      const aiPlan = ai.plans?.[plan] || {};
+      if (!ind) {
+        tradingPlan[plan] = buildPlan("WAIT", { entry_min: null, entry_max: null }, 0);
+        continue;
+      }
+      // если Claude не дал действие — берём детерминированный bias из согласия индикаторов
+      const action = aiPlan.action || (ind.consensus.bias === "BUY" ? "BUY_LIMIT" : ind.consensus.bias === "SELL" ? "SELL_LIMIT" : "WAIT");
+      const confidence = aiPlan.confidence != null ? aiPlan.confidence : ind.consensus.agreement_pct;
+      tradingPlan[plan] = buildPlan(action, ind.levels, confidence);
+    }
 
     res.json({
       symbol,
@@ -68,31 +99,31 @@ router.post("/", async (req, res) => {
       currentPrice,
       priceChange24h: +priceChange24h.toFixed(2),
 
-      // Key figures
-      stability: +stability,
+      stability,
       rsi: +rsi.toFixed(2),
       economicContext,
+      overallSignal: ai.overallSignal,
 
-      // Volumes
-      vol24h,
-      vol7d,
-      vol1m,
+      vol24h, vol7d, vol1m,
 
-      // RSI history для мини-графика (последние 50 точек)
-      rsiHistory: candles.slice(-50).map((c, i, arr) => {
+      rsiHistory: daily.slice(-50).map((c, i, arr) => {
         const slice = arr.slice(0, i + 1);
         return slice.length >= 14 ? +calcRSI(slice, 14).toFixed(2) : null;
       }).filter(Boolean),
+      priceHistory: daily.slice(-50).map(c => c.close),
 
-      priceHistory: candles.slice(-50).map(c => c.close),
+      tradingPlan,
+      technicalAnalysis: ai.technicalAnalysis,
+      probableScenarios: ai.probableScenarios,
+      explanation: ai.explanation,
 
-      // AI торговый план
-      tradingPlan: aiResult.tradingPlan,   // { scalper, dayTrader, swingTrader }
-      technicalAnalysis: aiResult.technicalAnalysis,
-      probableScenarios: aiResult.probableScenarios,
-      explanation: aiResult.explanation,
+      // сырые индикаторы по ТФ — фронт может показать
+      indicatorsByTf: {
+        scalper: tfData.scalper?.indicators ?? null,
+        dayTrader: tfData.dayTrader?.indicators ?? null,
+        swingTrader: tfData.swingTrader?.indicators ?? null,
+      },
 
-      // Доп.данные
       calendar,
       news,
       charts,

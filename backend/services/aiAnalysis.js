@@ -7,11 +7,8 @@ function callOpenRouter(messages, systemPrompt) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: MODEL,
-      max_tokens: 1500,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
+      max_tokens: 1800,
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
     });
 
     const req = https.request({
@@ -27,143 +24,127 @@ function callOpenRouter(messages, systemPrompt) {
       },
     }, (res) => {
       let data = "";
-      res.on("data", chunk => (data += chunk));
+      res.on("data", c => (data += c));
       res.on("end", () => {
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) return reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
           resolve(parsed.choices?.[0]?.message?.content || "");
-        } catch {
-          reject(new Error("OpenRouter parse error: " + data));
-        }
+        } catch { reject(new Error("OpenRouter parse error: " + data)); }
       });
     });
-
     req.on("error", reject);
     req.write(body);
     req.end();
   });
 }
 
-async function generateAnalysis({ symbol, category, currentPrice, rsi, atr, atrPct, stability, priceChange24h, charts, lang }) {
+// Компактный снимок индикаторов одного ТФ для промпта
+function tfSnapshot(ind) {
+  if (!ind) return null;
+  const i = ind.indicators;
+  return {
+    price: ind.last_close,
+    rsi: i.rsi_14, rsi_signal: i.rsi_signal,
+    macd: i.macd.interpretation,
+    bollinger: i.bollinger.position,
+    trend_ema: i.trend_by_ema,
+    adx: i.adx_14, adx_strength: i.adx_strength,
+    stoch: i.stochastic.interpretation,
+    volume: i.volume_signal,
+    consensus: ind.consensus,             // bull/bear/bias/agreement_pct
+    support: ind.levels.support_60,
+    resistance: ind.levels.resistance_60,
+  };
+}
+
+async function generateAnalysis({ symbol, category, lang, daily, tfData, charts }) {
   if (!OPENROUTER_KEY) {
-    return getFallbackAnalysis(symbol, currentPrice, rsi, atr);
-  }
-  const chartBase64 = charts?.scalper || charts?.dayTrader || charts?.swingTrader || null;
-
-  const langInstruction =
-    lang === "ru" ? "Respond in Russian language. All text fields must be in Russian." :
-    lang === "kz" ? "Respond in Kazakh language. All text fields must be in Kazakh." :
-    "Respond in English.";
-
-  const system = `You are an elite institutional trader and technical analyst with 20 years of experience.
-You analyze TradingView charts visually and provide precise, actionable trading signals.
-${langInstruction}
-Always respond with valid JSON only — no markdown fences, no extra text, just the raw JSON object.`;
-
-  const userContent = [];
-
-  // 3 графика: 1m → scalper, 5m → dayTrader, 1h → swingTrader
-  if (charts?.scalper) {
-    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.scalper}` } });
-  }
-  if (charts?.dayTrader) {
-    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.dayTrader}` } });
-  }
-  if (charts?.swingTrader) {
-    userContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.swingTrader}` } });
+    return fallback(tfData, daily);
   }
 
-  const hasCharts = charts?.scalper || charts?.dayTrader || charts?.swingTrader;
+  const langName = lang === "kz" ? "Kazakh" : lang === "en" ? "English" : "Russian";
 
-  userContent.push({
+  const system = `You are an elite institutional trader and quantitative analyst.
+You receive REAL pre-computed indicators (RSI, MACD, Bollinger, EMA 20/50/200, ATR, Stochastic, ADX) for 3 timeframes.
+The numbers are already calculated correctly — NEVER invent prices or indicator values, only INTERPRET them.
+Charts (if provided): image 1 = 1m (scalper), image 2 = 5m (day trader), image 3 = 1h (swing trader) — use them ONLY to spot visual patterns the numbers miss.
+Decide direction per timeframe from the indicator consensus. Confidence MUST reflect how many indicators agree (use the consensus.agreement_pct as a strong anchor).
+If signals are mixed (agreement near 50%), choose WAIT with low confidence — do not force a direction.
+Write all text fields ("reasoning", "technicalAnalysis", "probableScenarios", "explanation") in ${langName}.
+Respond with raw JSON only — no markdown, no backticks.`;
+
+  const payload = {
+    asset: symbol,
+    category,
+    daily_summary: tfSnapshot(daily),
+    timeframes: {
+      scalper_1m: tfSnapshot(tfData.scalper),
+      dayTrader_5m: tfSnapshot(tfData.dayTrader),
+      swingTrader_1h: tfSnapshot(tfData.swingTrader),
+    },
+  };
+
+  const content = [];
+  if (charts?.scalper)     content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.scalper}` } });
+  if (charts?.dayTrader)   content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.dayTrader}` } });
+  if (charts?.swingTrader) content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${charts.swingTrader}` } });
+
+  content.push({
     type: "text",
-    text: `Analyze ${symbol} (${category}) using ${hasCharts ? "the 3 FxPro TradingView charts provided (image 1 = 1m scalper, image 2 = 5m day trader, image 3 = 1h swing trader)" : "market data below"}.
+    text: `Analyze ${symbol} (${category}). Pre-computed indicators per timeframe:
 
-Market context:
-- Current price: ${currentPrice}
-- RSI(14): ${rsi.toFixed(2)}
-- ATR(14): ${atr.toFixed(5)} (${atrPct.toFixed(2)}% volatility)
-- Market stability: ${stability}/10
-- 24h change: ${priceChange24h >= 0 ? "+" : ""}${priceChange24h.toFixed(2)}%
+${JSON.stringify(payload, null, 2)}
 
-${hasCharts ? "Analyze each timeframe separately:\n- 1m chart → scalper signals (entry/SL/TP tight)\n- 5m chart → day trader signals (medium range)\n- 1h chart → swing trader signals (wider SL/TP)" : "Use the market data above for analysis."}
-
-Return ONLY this JSON object:
+Return ONLY this JSON:
 {
-  "overallSignal": "BUY",
-  "tradingPlan": {
-    "scalper": {
-      "action": "BUY_LIMIT",
-      "entryMin": 0,
-      "entryMax": 0,
-      "stopLoss": 0,
-      "takeProfit": 0,
-      "confidence": 75
-    },
-    "dayTrader": {
-      "action": "BUY_LIMIT",
-      "entryMin": 0,
-      "entryMax": 0,
-      "stopLoss": 0,
-      "takeProfit": 0,
-      "confidence": 70
-    },
-    "swingTrader": {
-      "action": "BUY_LIMIT",
-      "entryMin": 0,
-      "entryMax": 0,
-      "stopLoss": 0,
-      "takeProfit": 0,
-      "confidence": 65
-    }
+  "overallSignal": "BUY" | "SELL" | "WAIT",
+  "plans": {
+    "scalper":     { "action": "BUY_LIMIT|SELL_LIMIT|BUY_STOP|SELL_STOP|WAIT", "confidence": 0-100, "reasoning": "1 sentence" },
+    "dayTrader":   { "action": "...", "confidence": 0-100, "reasoning": "1 sentence" },
+    "swingTrader": { "action": "...", "confidence": 0-100, "reasoning": "1 sentence" }
   },
-  "technicalAnalysis": "...",
+  "technicalAnalysis": "2-3 sentences across timeframes",
   "probableScenarios": "Bullish: ... Bearish: ...",
-  "explanation": "..."
+  "explanation": "1-2 sentences on the main driver"
 }
 
 Rules:
-- action must be one of: BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP, WAIT
-- overallSignal must be one of: BUY, SELL, WAIT
-- All prices must be real numbers (not strings), close to current price of ${currentPrice}
-- confidence is 0-100 integer`,
+- Do NOT output entry/stop/take-profit prices — those are computed deterministically elsewhere.
+- confidence per plan should track that timeframe's consensus.agreement_pct.`,
   });
 
   try {
-    const raw = await callOpenRouter(
-      [{ role: "user", content: userContent }],
-      system
-    );
-
-    // Убираем возможные markdown блоки если вдруг появились
+    const raw = await callOpenRouter([{ role: "user", content }], system);
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in response: " + raw.slice(0, 200));
-    return JSON.parse(jsonMatch[0]);
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("No JSON: " + raw.slice(0, 200));
+    return JSON.parse(m[0]);
   } catch (err) {
     console.error("OpenRouter error:", err.message);
-    return getFallbackAnalysis(symbol, currentPrice, rsi, atr);
+    return fallback(tfData, daily);
   }
 }
 
-function getFallbackAnalysis(symbol, price, rsi, atr) {
-  const isBullish = rsi < 50;
-  const action = isBullish ? "BUY_LIMIT" : "SELL_LIMIT";
-  const sl = isBullish ? +(price - atr * 1.5).toFixed(5) : +(price + atr * 1.5).toFixed(5);
-  const tp = isBullish ? +(price + atr * 3).toFixed(5)   : +(price - atr * 3).toFixed(5);
-  const entry = [+(price - atr * 0.3).toFixed(5), +(price + atr * 0.1).toFixed(5)];
-
+// Фоллбэк без LLM: строим направление и уверенность из согласия индикаторов
+function fallback(tfData, daily) {
+  const plan = (ind) => {
+    if (!ind) return { action: "WAIT", confidence: 0, reasoning: "нет данных" };
+    const { bias, agreement_pct } = ind.consensus;
+    const action = bias === "BUY" ? "BUY_LIMIT" : bias === "SELL" ? "SELL_LIMIT" : "WAIT";
+    return { action, confidence: agreement_pct, reasoning: `${ind.consensus.bull} индикаторов за рост, ${ind.consensus.bear} за падение` };
+  };
+  const d = daily?.consensus?.bias || "WAIT";
   return {
-    overallSignal: isBullish ? "BUY" : "SELL",
-    tradingPlan: {
-      scalper:     { action, entryMin: entry[0], entryMax: entry[1], stopLoss: sl, takeProfit: tp, confidence: 72 },
-      dayTrader:   { action, entryMin: +(price - atr * 0.5).toFixed(5), entryMax: +(price + atr * 0.2).toFixed(5), stopLoss: sl, takeProfit: tp, confidence: 68 },
-      swingTrader: { action, entryMin: +(price - atr * 1.0).toFixed(5), entryMax: +(price + atr * 0.3).toFixed(5), stopLoss: sl, takeProfit: tp, confidence: 65 },
+    overallSignal: d,
+    plans: {
+      scalper: plan(tfData.scalper),
+      dayTrader: plan(tfData.dayTrader),
+      swingTrader: plan(tfData.swingTrader),
     },
-    technicalAnalysis: `RSI at ${rsi.toFixed(1)} indicates ${rsi < 30 ? "oversold" : rsi > 70 ? "overbought" : "neutral"} conditions. ATR ${atr.toFixed(5)} — ${atrPct > 3 ? "high" : "moderate"} volatility.`,
-    probableScenarios: "Bullish: price rebounds from current support. Bearish: continued pressure if key level breaks.",
-    explanation: `Signal based on RSI at ${rsi.toFixed(1)} and current price momentum.`,
+    technicalAnalysis: daily ? `RSI ${daily.indicators.rsi_14}, тренд: ${daily.indicators.trend_by_ema}, ADX: ${daily.indicators.adx_strength}.` : "",
+    probableScenarios: "Bullish: пробой сопротивления. Bearish: уход под поддержку.",
+    explanation: "Сигнал на основе согласия индикаторов (без LLM).",
   };
 }
 

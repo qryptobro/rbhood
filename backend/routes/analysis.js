@@ -7,7 +7,7 @@ const { generateAnalysis } = require("../services/aiAnalysis");
 const { getThreeCharts } = require("../services/chartImg");
 
 // Таймфрейм каждого плана
-const PLAN_TF = { scalper: "1m", dayTrader: "5m", swingTrader: "1h" };
+const PLAN_TF = { scalper: "5m", dayTrader: "15m", swingTrader: "4h" };
 
 // Из детерминированных ATR-уровней + направления собираем план
 function buildPlan(action, levels, confidence) {

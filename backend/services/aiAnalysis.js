@@ -69,7 +69,7 @@ async function generateAnalysis({ symbol, category, lang, daily, tfData, charts 
   const system = `You are an elite institutional trader and quantitative analyst.
 You receive REAL pre-computed indicators (RSI, MACD, Bollinger, EMA 20/50/200, ATR, Stochastic, ADX) for 3 timeframes.
 The numbers are already calculated correctly — NEVER invent prices or indicator values, only INTERPRET them.
-Charts (if provided): image 1 = 1m (scalper), image 2 = 5m (day trader), image 3 = 1h (swing trader) — use them ONLY to spot visual patterns the numbers miss.
+Charts (if provided): image 1 = 5m (scalper), image 2 = 15m (day trader), image 3 = 4h (swing trader) — use them ONLY to spot visual patterns the numbers miss.
 Decide direction per timeframe from the indicator consensus. Confidence MUST reflect how many indicators agree (use the consensus.agreement_pct as a strong anchor).
 If signals are mixed (agreement near 50%), choose WAIT with low confidence — do not force a direction.
 Write all text fields ("reasoning", "technicalAnalysis", "probableScenarios", "explanation") in ${langName}.
@@ -80,9 +80,9 @@ Respond with raw JSON only — no markdown, no backticks.`;
     category,
     daily_summary: tfSnapshot(daily),
     timeframes: {
-      scalper_1m: tfSnapshot(tfData.scalper),
-      dayTrader_5m: tfSnapshot(tfData.dayTrader),
-      swingTrader_1h: tfSnapshot(tfData.swingTrader),
+      scalper_5m: tfSnapshot(tfData.scalper),
+      dayTrader_15m: tfSnapshot(tfData.dayTrader),
+      swingTrader_4h: tfSnapshot(tfData.swingTrader),
     },
   };
 

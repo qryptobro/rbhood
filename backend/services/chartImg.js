@@ -105,11 +105,11 @@ async function fetchWithRetry(symbol, interval, retries = 2) {
 }
 
 async function getThreeCharts(symbol) {
-  const scalper     = await fetchWithRetry(symbol, "1m");
+  const scalper     = await fetchWithRetry(symbol, "5m");
   await sleep(2000);
-  const dayTrader   = await fetchWithRetry(symbol, "5m");
+  const dayTrader   = await fetchWithRetry(symbol, "15m");
   await sleep(2000);
-  const swingTrader = await fetchWithRetry(symbol, "1h");
+  const swingTrader = await fetchWithRetry(symbol, "4h");
   return { scalper, dayTrader, swingTrader };
 }
 

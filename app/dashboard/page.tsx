@@ -495,7 +495,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex gap-1">
                   {(["scalper", "dayTrader", "swingTrader"] as const).map((pt) => {
-                    const label = pt === "scalper" ? "1m" : pt === "dayTrader" ? "5m" : "1h";
+                    const label = pt === "scalper" ? "5m" : pt === "dayTrader" ? "15m" : "4h";
                     return (
                       <button key={pt} onClick={() => setPlanTab(pt)}
                         className="px-2.5 py-0.5 rounded-lg font-mono text-[10px] font-bold transition-all"

@@ -43,7 +43,7 @@ router.post("/", async (req, res) => {
     // 5. Скриншот графика из TradingView (Chart IMG)
     let chartBase64 = null;
     try {
-      chartBase64 = await getChartBase64(symbol, "D");
+      chartBase64 = await getChartBase64(symbol, "1D");
     } catch (e) {
       console.warn("Chart IMG unavailable:", e.message);
     }

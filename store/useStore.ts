@@ -336,9 +336,9 @@ export const useStore = create<Store>()(
         })),
     }),
     {
-      name: "rbhood-admin-store",
+      name: "rbhood-admin-store-v6", // смена имени ключа = гарантированный сброс на дефолты
       version: 6,
-      migrate: () => ({}), // при смене версии сбрасываем — store заполнится дефолтами
+      migrate: () => ({}),
     }
   )
 );

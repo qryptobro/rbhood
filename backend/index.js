@@ -11,8 +11,9 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "rbhood-backend" });
 });
 
-app.use("/api/auth",  require("./routes/auth"));
-app.use("/api/users", require("./routes/users"));
+app.use("/api/auth",     require("./routes/auth"));
+app.use("/api/users",    require("./routes/users"));
+app.use("/api/analysis", require("./routes/analysis"));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

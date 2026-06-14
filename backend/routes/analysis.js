@@ -109,6 +109,7 @@ router.post("/", async (req, res) => {
         return slice.length >= 14 ? +calcRSI(slice, 14).toFixed(2) : null;
       }).filter(Boolean),
       priceHistory: daily.slice(-50).map(c => c.close),
+      volumeHistory: daily.slice(-40).map(c => c.volume),
 
       tradingPlan,
       technicalAnalysis: ai.technicalAnalysis,

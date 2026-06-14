@@ -6,6 +6,7 @@ import { ASSET_ICONS } from "./components/AssetIcons";
 import { useStore } from "../../store/useStore";
 import { useHistory } from "./context/HistoryContext";
 import CandleChart, { type Candle } from "./components/CandleChart";
+import Sparkline from "./components/Sparkline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Signal = "BUY" | "SELL" | "HOLD";
@@ -153,12 +154,13 @@ interface APIResponse {
   vol1m: number;
   rsiHistory: number[];
   priceHistory: number[];
+  volumeHistory: number[];
   tradingPlan: { scalper: TradingPlanEntry; dayTrader: TradingPlanEntry; swingTrader: TradingPlanEntry };
   technicalAnalysis: string;
   probableScenarios: string | { Bullish?: string; Bearish?: string; [key: string]: string | undefined };
   explanation: string;
   overallSignal?: string;
-  calendar: unknown[];
+  calendar: { impact?: string; date?: string; title?: string; description?: string; source?: string }[];
   news: { title: string; url: string; sentiment?: string; time?: string }[];
   candlesByTf: {
     scalper: Candle[] | null;
@@ -278,6 +280,75 @@ function ScanningLoader({ ticker }: { ticker: string }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Section heading (заголовок секции со стрелкой) ───────────────────────────
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-4 mt-2">
+      <h2 className="font-exo font-bold text-white text-lg">{children}</h2>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+      </svg>
+    </div>
+  );
+}
+
+// ─── Key-figure card (карточка с заголовком, значением, спарклайном, описанием) ─
+function FigureCard({ title, value, valueColor = "#fff", data, color, desc }: {
+  title: string; value: string; valueColor?: string; data: number[]; color: string; desc: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden flex flex-col" style={{ background: "#121212" }}>
+      <div className="flex items-start justify-between px-5 pt-4">
+        <span className="font-exo text-sm text-[#999]">{title}</span>
+        <span className="font-orbitron text-base font-bold" style={{ color: valueColor }}>{value}</span>
+      </div>
+      <div className="px-1 pt-2">
+        <Sparkline data={data} color={color} height={90} />
+      </div>
+      <div className="px-5 py-3 border-t border-[#171717]">
+        <span className="font-exo text-[11px] text-[#555] leading-snug">{desc}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Plan card (большое значение + подпись) ───────────────────────────────────
+function PlanCard({ value, label, color = "#fff" }: { value: string; label: string; color?: string }) {
+  return (
+    <div className="rounded-2xl border border-[#1a1a1a] px-5 py-5 flex flex-col justify-between min-h-[110px]" style={{ background: "#121212" }}>
+      <span className="font-orbitron text-2xl md:text-[26px] font-bold leading-tight break-words" style={{ color }}>{value}</span>
+      <span className="font-exo text-xs text-[#555] mt-3">{label}</span>
+    </div>
+  );
+}
+
+// ─── Accordion (раскрывающийся блок) ──────────────────────────────────────────
+function Accordion({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-3" style={{ background: "#121212" }}>
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-5 py-4 text-left">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#02B36515" }}>{icon}</div>
+        <span className="font-exo font-bold text-white text-sm flex-1">{title}</span>
+        <motion.svg animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}
+          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round">
+          <polyline points="6 9 12 15 18 9" />
+        </motion.svg>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }} className="overflow-hidden">
+            <div className="px-5 pb-4 pt-0 font-exo text-sm text-[#888] leading-relaxed border-t border-[#171717]">
+              <div className="pt-3">{children}</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -450,53 +521,110 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Result */}
-      {!scanning && result && selected && (
-        <motion.div key={result.ticker} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }} className="px-6 py-8 max-w-3xl mx-auto">
+      {/* Result — redesign */}
+      {!scanning && result && selected && apiData && (() => {
+        const topColor = result.changePositive ? "#02B365" : "#EF4444";
+        const cp = apiData.currentPrice ?? 0;
+        const dec = cp > 100 ? 2 : cp > 1 ? 4 : 6;
+        const pf = (n: number | null) => n == null ? "—" : n.toFixed(dec);
+        const plan = apiData.tradingPlan[planTab];
+        const planActionColor = plan.action.includes("BUY") ? "#02B365" : plan.action === "WAIT" ? "#F59E0B" : "#EF4444";
+        const headerIcon = tools.find(tt => tt.symbol === selected.symbol)?.icon;
+        const ctxColor = apiData.economicContext === "Bullish" ? "#02B365" : apiData.economicContext === "Bearish" ? "#EF4444" : "#F59E0B";
 
-          {/* Header card */}
-          <div className="rounded-2xl border border-[#1a1a1a] p-6 mb-4" style={{ background: "#111" }}>
-            <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="font-orbitron text-xl font-bold text-white">{result.ticker}</span>
-                  <SignalBadge signal={result.signal} large />
+        return (
+        <motion.div key={result.ticker} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }} className="px-6 py-8 max-w-5xl mx-auto">
+
+          {/* ─── HEADER: иконка + имя + крупная цена ─── */}
+          <div className="flex flex-col items-center text-center mb-10">
+            <div className="flex items-center gap-3 mb-4">
+              {headerIcon ? (
+                <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center" style={{ background: "#1f1f1f" }}>
+                  <img src={headerIcon} alt="" className="w-full h-full object-contain" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-lg text-white">{result.price}</span>
-                  <span className="font-mono text-sm font-bold" style={{ color: result.changePositive ? "#02B365" : "#EF4444" }}>{result.change}</span>
+              ) : ASSET_ICONS[selected.symbol] ? (
+                <div className="w-14 h-14 flex items-center justify-center">{ASSET_ICONS[selected.symbol]}</div>
+              ) : (
+                <div className="w-14 h-14 rounded-full flex items-center justify-center font-orbitron font-bold text-white border border-[#2a2a2a]" style={{ background: "#1f1f1f" }}>
+                  {selected.symbol.slice(0, 3)}
                 </div>
-                <div className="font-exo text-xs text-[#333] mt-0.5">{selected.name}</div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{t["db_score"]}</div>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${result.score}%` }} transition={{ duration: 0.9, ease: "easeOut" }}
-                      className="h-full rounded-full"
-                      style={{ background: result.score >= 70 ? "#02B365" : result.score >= 50 ? "#F59E0B" : "#EF4444" }} />
-                  </div>
-                  <span className="font-orbitron text-base font-bold text-white">{result.score}/100</span>
-                </div>
+              )}
+              <div className="text-left">
+                <div className="font-mono text-[11px] text-[#555] uppercase tracking-wider">{selected.symbol}</div>
+                <div className="font-exo text-3xl font-bold text-white leading-tight">{selected.name}</div>
               </div>
             </div>
-            <div className="border-t border-[#161616] pt-4">
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-1.5">{t["db_summary"]}</div>
-              <p className="font-exo text-sm text-[#666] leading-relaxed">{result.summary}</p>
-              {apiData?.explanation && (
-                <p className="font-exo text-xs text-[#444] mt-2 leading-relaxed">{apiData.explanation}</p>
-              )}
+            <div className="flex items-baseline gap-3 flex-wrap justify-center">
+              <span className="font-orbitron text-5xl font-bold text-white">{cp >= 100 ? `$${cp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${cp.toFixed(dec)}`}</span>
+              <span className="font-mono text-sm font-bold" style={{ color: topColor }}>
+                {result.change} <span className="text-[#555] font-normal">24h</span>
+              </span>
             </div>
           </div>
 
-          {/* График из MT5-свечей — 3 таймфрейма */}
-          {apiData?.candlesByTf && (
-            <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-4">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]" style={{ background: "#111" }}>
+          {/* ─── KEY FIGURES ─── */}
+          <SectionHeading>Key figures</SectionHeading>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
+            <FigureCard title="Market stability" value={`${apiData.stability}/10`} valueColor={topColor}
+              data={apiData.priceHistory} color={topColor}
+              desc="Обратная величина волатильности (ATR%). Чем выше — тем спокойнее рынок." />
+            <FigureCard title="RSI" value={`${Math.round(apiData.rsi)}`} valueColor={topColor}
+              data={apiData.rsiHistory} color={topColor}
+              desc="Тренд RSI для зон перекупленности / перепроданности." />
+            <FigureCard title="Economic context" value={apiData.economicContext} valueColor={ctxColor}
+              data={apiData.rsiHistory} color={ctxColor}
+              desc={`RSI(14): ${apiData.rsi} · 24h: ${apiData.priceChange24h > 0 ? "+" : ""}${apiData.priceChange24h}% · Стабильность ${apiData.stability}/10`} />
+            <FigureCard title="Volume 24h" value={fmtVol(apiData.vol24h)} data={apiData.volumeHistory.slice(-12)} color="#5a6470"
+              desc="Объём торгов за последние 24 часа." />
+            <FigureCard title="Volume 7d" value={fmtVol(apiData.vol7d)} data={apiData.volumeHistory.slice(-20)} color="#5a6470"
+              desc="Объём торгов за последние 7 дней." />
+            <FigureCard title="Volume 1M" value={fmtVol(apiData.vol1m)} data={apiData.volumeHistory} color="#5a6470"
+              desc="Объём торгов за последний месяц." />
+          </div>
+
+          {/* ─── ADAPTED TRADING PLAN ─── */}
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <SectionHeading>Adapted trading plan</SectionHeading>
+            <div className="flex items-center gap-1 p-1 rounded-2xl border border-[#1a1a1a]" style={{ background: "#121212" }}>
+              {(["scalper", "dayTrader", "swingTrader"] as const).map(pt => (
+                <button key={pt} onClick={() => setPlanTab(pt)}
+                  className="px-4 py-1.5 rounded-xl font-exo font-bold text-xs transition-all"
+                  style={{ background: planTab === pt ? "#02B365" : "transparent", color: planTab === pt ? "#fff" : "#555" }}>
+                  {pt === "scalper" ? "Scalper" : pt === "dayTrader" ? "Day Trader" : "Swing Trader"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <PlanCard value={plan.action.replace(/_/g, " ")} label="Тип сделки" color={planActionColor} />
+            <PlanCard value={plan.entryMin == null ? "—" : `${pf(plan.entryMin)}–${pf(plan.entryMax)}`} label="Цена входа" />
+            <PlanCard value={pf(plan.stopLoss)} label="Стоп-лосс" color="#EF4444" />
+            <PlanCard value={pf(plan.takeProfit)} label="Тейк-профит" color="#02B365" />
+          </div>
+
+          {/* Explanations + confidence accordion */}
+          <Accordion title="Объяснение"
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>}>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] text-[#444]">УВЕРЕННОСТЬ</span>
+                <div className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden max-w-[200px]">
+                  <div className="h-full rounded-full" style={{ width: `${plan.confidence}%`, background: plan.confidence >= 70 ? "#02B365" : plan.confidence >= 50 ? "#F59E0B" : "#EF4444" }} />
+                </div>
+                <span className="font-mono text-xs text-white">{plan.confidence}%</span>
+              </div>
+              <p>{apiData.explanation}</p>
+            </div>
+          </Accordion>
+
+          {/* ─── ГРАФИК из MT5-свечей ─── */}
+          {apiData.candlesByTf && (
+            <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden mb-10 mt-3">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]" style={{ background: "#121212" }}>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#02B365]" />
-                  <span className="font-mono text-[10px] text-[#333] uppercase tracking-widest">FxPro · {selected?.symbol}</span>
+                  <span className="font-mono text-[10px] text-[#444] uppercase tracking-widest">FxPro · {selected.symbol}</span>
                 </div>
                 <div className="flex gap-1">
                   {(["scalper", "dayTrader", "swingTrader"] as const).map((pt) => {
@@ -519,146 +647,91 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Indicators + Scenarios + Levels */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">{t["db_levels"]}</div>
-              {result.targets.map(tgt => (
-                <div key={tgt.label} className="flex items-center justify-between mb-2">
-                  <span className="font-exo text-xs text-[#444]">{tgt.label}</span>
-                  <span className="font-mono text-xs font-bold" style={{ color: tgt.color }}>{tgt.price}</span>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">{t["db_scenarios"]}</div>
-              {result.scenarios.map(sc => (
-                <div key={sc.label} className="mb-2.5">
-                  <div className="flex justify-between mb-1">
-                    <span className="font-exo text-xs" style={{ color: sc.color }}>{sc.label}</span>
-                    <span className="font-mono text-xs" style={{ color: sc.color }}>{sc.prob}%</span>
+          {/* ─── OTHER INFORMATION ─── */}
+          <SectionHeading>Прочая информация</SectionHeading>
+          <Accordion title="Технический анализ"
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>}>
+            {apiData.technicalAnalysis}
+          </Accordion>
+          <Accordion title="Вероятные сценарии"
+            icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>}>
+            {typeof apiData.probableScenarios === "string" ? apiData.probableScenarios : (
+              <div className="flex flex-col gap-2">
+                {Object.entries(apiData.probableScenarios).map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <span className="font-mono text-[10px] font-bold flex-shrink-0 mt-0.5" style={{ color: k === "Bullish" ? "#02B365" : k === "Bearish" ? "#EF4444" : "#F59E0B" }}>{k.toUpperCase()}:</span>
+                    <span>{v}</span>
                   </div>
-                  <div className="h-1 rounded-full bg-[#1a1a1a] overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${sc.prob}%` }} transition={{ duration: 0.7, ease: "easeOut" }}
-                      className="h-full rounded-full" style={{ background: sc.color }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">{t["db_indicators"]}</div>
-              {result.indicators.map(ind => (
-                <div key={ind.name} className="flex items-center justify-between mb-1.5">
-                  <span className="font-exo text-[11px] text-[#444] truncate">{ind.name}</span>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="font-mono text-[11px] text-white">{ind.value}</span>
-                    <div className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: ind.status === "bull" ? "#02B365" : ind.status === "bear" ? "#EF4444" : "#F59E0B" }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Trading Plan (Scalper / Day / Swing) */}
-          {apiData?.tradingPlan && (
-            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">Торговый план</div>
-              <div className="flex gap-1 mb-4">
-                {(["scalper", "dayTrader", "swingTrader"] as const).map(pt => (
-                  <button key={pt} onClick={() => setPlanTab(pt)}
-                    className="px-4 py-1.5 rounded-xl text-xs font-exo font-bold transition-all"
-                    style={{ background: planTab === pt ? "#02B365" : "#161616", color: planTab === pt ? "#fff" : "#444" }}>
-                    {pt === "scalper" ? "Скальпер" : pt === "dayTrader" ? "Дей-трейдер" : "Свинг"}
-                  </button>
                 ))}
               </div>
-              {(() => {
-                const p = apiData.tradingPlan[planTab];
-                const isLong = p.action.includes("BUY");
-                const actionColor = isLong ? "#02B365" : p.action === "WAIT" ? "#F59E0B" : "#EF4444";
-                const fmt = (n: number | null) => n == null ? "—" : n.toFixed(result.price.includes(".") ? result.price.split(".")[1].length : 2);
-                return (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
-                      <div className="font-mono text-[9px] text-[#333] mb-1">СИГНАЛ</div>
-                      <div className="font-orbitron text-sm font-bold" style={{ color: actionColor }}>{p.action.replace("_", " ")}</div>
+            )}
+          </Accordion>
+
+          {/* ─── ECONOMIC ANNOUNCEMENTS ─── */}
+          {apiData.calendar && apiData.calendar.length > 0 && (
+            <div className="mt-8">
+              <SectionHeading>Экономические события</SectionHeading>
+              <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+                {apiData.calendar.map((ev, i) => {
+                  const high = ev.impact === "High";
+                  const badge = high ? { c: "#EF4444", bg: "#EF444415" } : ev.impact === "Medium" ? { c: "#F59E0B", bg: "#F59E0B15" } : { c: "#555", bg: "#ffffff08" };
+                  return (
+                    <div key={i} className="flex-shrink-0 w-[320px] rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#121212" }}>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-exo text-xs font-bold mb-3" style={{ color: badge.c, background: badge.bg }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        {ev.impact}
+                      </span>
+                      {ev.date && <div className="flex items-center gap-1.5 font-exo text-xs text-[#555] mb-2"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>{new Date(ev.date).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</div>}
+                      <div className="font-exo font-bold text-white text-sm mb-2 leading-snug">{ev.title}</div>
+                      {ev.source && <div className="flex items-center gap-1.5 font-exo text-[11px] text-[#444] mt-3"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>{ev.source}</div>}
                     </div>
-                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
-                      <div className="font-mono text-[9px] text-[#333] mb-1">ВХОД</div>
-                      <div className="font-mono text-xs text-white">{fmt(p.entryMin)} – {fmt(p.entryMax)}</div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ─── NEWS ─── */}
+          {apiData.news && apiData.news.length > 0 && (
+            <div className="mt-8">
+              <SectionHeading>Новости</SectionHeading>
+              <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "thin" }}>
+                {apiData.news.slice(0, 8).map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                    className="flex-shrink-0 w-[300px] rounded-2xl border border-[#1a1a1a] overflow-hidden hover:border-[#02B36540] transition-all group" style={{ background: "#121212" }}>
+                    <div className="h-32 flex items-center justify-center relative" style={{ background: "radial-gradient(circle, #02B36510, #0a0a0a)" }}>
+                      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5">
+                        <path d="M3 21v-4a4 4 0 0 1 4-4h2l3-5 3 5h2a4 4 0 0 1 4 4v4"/><circle cx="7" cy="6" r="1"/><circle cx="17" cy="6" r="1"/>
+                      </svg>
+                      <span className="absolute bottom-2 font-mono text-[8px] text-[#333] tracking-widest">[NEWS]</span>
                     </div>
-                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
-                      <div className="font-mono text-[9px] text-[#EF4444] mb-1">СТОП-ЛОСС</div>
-                      <div className="font-mono text-xs text-[#EF4444]">{fmt(p.stopLoss)}</div>
-                    </div>
-                    <div className="rounded-xl border border-[#1e1e1e] p-3" style={{ background: "#161616" }}>
-                      <div className="font-mono text-[9px] text-[#02B365] mb-1">ТЕЙК-ПРОФИТ</div>
-                      <div className="font-mono text-xs text-[#02B365]">{fmt(p.takeProfit)}</div>
-                    </div>
-                    <div className="rounded-xl border border-[#1e1e1e] p-3 md:col-span-2" style={{ background: "#161616" }}>
-                      <div className="font-mono text-[9px] text-[#333] mb-1">УВЕРЕННОСТЬ</div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-[#222] overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${p.confidence}%` }} transition={{ duration: 0.8 }}
-                            className="h-full rounded-full"
-                            style={{ background: p.confidence >= 70 ? "#02B365" : p.confidence >= 50 ? "#F59E0B" : "#EF4444" }} />
-                        </div>
-                        <span className="font-mono text-xs text-white">{p.confidence}%</span>
+                    <div className="p-4">
+                      <div className="font-exo text-sm text-[#ccc] font-semibold leading-snug mb-2 line-clamp-3 group-hover:text-white transition-colors">{n.title}</div>
+                      <div className="flex items-center gap-1.5 font-exo text-[11px] text-[#444]">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        {(n as { source?: string }).source || "News"}
                       </div>
                     </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Probable scenarios text */}
-          {apiData?.probableScenarios && (
-            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-2">Вероятные сценарии</div>
-              {typeof apiData.probableScenarios === "string" ? (
-                <p className="font-exo text-sm text-[#555] leading-relaxed">{apiData.probableScenarios}</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {Object.entries(apiData.probableScenarios).map(([key, val]) => (
-                    <div key={key} className="flex gap-2">
-                      <span className="font-mono text-[10px] font-bold flex-shrink-0 mt-0.5"
-                        style={{ color: key === "Bullish" ? "#02B365" : key === "Bearish" ? "#EF4444" : "#F59E0B" }}>
-                        {key.toUpperCase()}:
-                      </span>
-                      <span className="font-exo text-sm text-[#555] leading-relaxed">{val}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* News */}
-          {apiData?.news && apiData.news.length > 0 && (
-            <div className="rounded-2xl border border-[#1a1a1a] p-5 mb-4" style={{ background: "#111" }}>
-              <div className="font-mono text-[10px] text-[#333] uppercase tracking-widest mb-3">Новости</div>
-              <div className="flex flex-col gap-2">
-                {apiData.news.slice(0, 5).map((n, i) => (
-                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-start gap-2 p-2.5 rounded-xl border border-[#1e1e1e] hover:border-[#333] transition-all"
-                    style={{ background: "#161616" }}>
-                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                      style={{ background: n.sentiment === "Bullish" ? "#02B365" : n.sentiment === "Bearish" ? "#EF4444" : "#444" }} />
-                    <span className="font-exo text-xs text-[#555] leading-snug">{n.title}</span>
                   </a>
                 ))}
               </div>
             </div>
           )}
 
-          <button onClick={() => { setSelected(null); setResult(null); setApiData(null); }}
-            className="font-exo text-xs text-[#444] hover:text-white border border-[#1a1a1a] hover:border-[#333] px-4 py-2 rounded-xl transition-all">
-            {t["db_back"]}
-          </button>
+          {/* disclaimer + back */}
+          <div className="text-center mt-10 mb-4">
+            <p className="font-exo text-xs text-[#444]">Анализ сгенерирован ИИ. Используйте как инструмент, но проводите собственное исследование перед сделками.</p>
+          </div>
+          <div className="flex justify-center">
+            <button onClick={() => { setSelected(null); setResult(null); setApiData(null); }}
+              className="font-exo text-xs text-[#444] hover:text-white border border-[#1a1a1a] hover:border-[#333] px-5 py-2 rounded-xl transition-all">
+              {t["db_back"]}
+            </button>
+          </div>
         </motion.div>
-      )}
+        );
+      })()}
+
     </AnimatePresence>
   );
 }

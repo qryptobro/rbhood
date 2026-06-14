@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useI18n } from "../components/i18n";
 import { ASSET_ICONS } from "./components/AssetIcons";
 import { useStore } from "../../store/useStore";
+import { useHistory } from "./context/HistoryContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Signal = "BUY" | "SELL" | "HOLD";
@@ -170,11 +171,11 @@ function fmtVol(v: number): string {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-async function fetchAnalysis(symbol: string, category: string): Promise<APIResponse> {
+async function fetchAnalysis(symbol: string, category: string, lang: string): Promise<APIResponse> {
   const res = await fetch(`${API_URL}/api/analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbol, category }),
+    body: JSON.stringify({ symbol, category, lang }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -278,8 +279,9 @@ function ScanningLoader({ ticker }: { ticker: string }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { tools } = useStore();
+  const { pushHistory } = useHistory();
   const [tab, setTab] = useState<Tab>("forex");
   const [selected, setSelected] = useState<Asset | null>(null);
   const [ASSETS, setASSETS] = useState<Record<Tab, Asset[]> | null>(null);
@@ -318,9 +320,15 @@ export default function DashboardPage() {
     setApiData(null);
     setApiError(null);
     try {
-      const data = await fetchAnalysis(asset.symbol, tab);
+      const data = await fetchAnalysis(asset.symbol, tab, lang);
       setApiData(data);
-      setResult(apiToResult(data, asset, t));
+      const mapped = apiToResult(data, asset, t);
+      setResult(mapped);
+      pushHistory({
+        ticker: asset.symbol,
+        signal: mapped.signal,
+        time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      });
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Ошибка");
     } finally {

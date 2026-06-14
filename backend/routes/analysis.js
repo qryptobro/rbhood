@@ -8,7 +8,7 @@ const { getChartBase64 } = require("../services/chartImg");
 // POST /api/analysis
 // body: { symbol: "XAUUSD", category: "forex" | "crypto" | "stocks" }
 router.post("/", async (req, res) => {
-  const { symbol, category } = req.body;
+  const { symbol, category, lang } = req.body;
   if (!symbol || !category) {
     return res.status(400).json({ error: "symbol and category required" });
   }
@@ -59,6 +59,7 @@ router.post("/", async (req, res) => {
       stability,
       priceChange24h,
       chartBase64,
+      lang: lang || "ru",
     });
 
     res.json({

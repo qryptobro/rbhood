@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { I18nProvider, useI18n, Lang } from "../components/i18n";
 import Sidebar from "./components/Sidebar";
+import { HistoryProvider, useHistory } from "./context/HistoryContext";
 
 function LangDropdown() {
   const { lang, setLang } = useI18n();
@@ -55,7 +56,7 @@ function LangDropdown() {
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [history, setHistory] = useState<{ id: number; ticker: string; signal: "BUY"|"SELL"|"HOLD"; time: string }[]>([]);
+  const { history, deleteHistory } = useHistory();
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#0e0e0e", fontFamily: "'Exo 2', sans-serif" }}>
@@ -68,7 +69,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             transition={{ duration: 0.22, ease: "easeInOut" }}
             className="flex-shrink-0 overflow-hidden h-full"
           >
-            <Sidebar history={history} onDeleteHistory={(id) => setHistory(h => h.filter(i => i.id !== id))} />
+            <Sidebar history={history} onDeleteHistory={deleteHistory} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -106,7 +107,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <I18nProvider>
-      <DashboardShell>{children}</DashboardShell>
+      <HistoryProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </HistoryProvider>
     </I18nProvider>
   );
 }

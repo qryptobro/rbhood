@@ -45,13 +45,19 @@ function callOpenRouter(messages, systemPrompt) {
   });
 }
 
-async function generateAnalysis({ symbol, category, currentPrice, rsi, atr, atrPct, stability, priceChange24h, chartBase64 }) {
+async function generateAnalysis({ symbol, category, currentPrice, rsi, atr, atrPct, stability, priceChange24h, chartBase64, lang }) {
   if (!OPENROUTER_KEY) {
     return getFallbackAnalysis(symbol, currentPrice, rsi, atr);
   }
 
+  const langInstruction =
+    lang === "ru" ? "Respond in Russian language. All text fields must be in Russian." :
+    lang === "kz" ? "Respond in Kazakh language. All text fields must be in Kazakh." :
+    "Respond in English.";
+
   const system = `You are an elite institutional trader and technical analyst with 20 years of experience.
 You analyze TradingView charts visually and provide precise, actionable trading signals.
+${langInstruction}
 Always respond with valid JSON only — no markdown fences, no extra text, just the raw JSON object.`;
 
   const userContent = [];

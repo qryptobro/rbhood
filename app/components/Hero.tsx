@@ -40,7 +40,7 @@ export default function Hero() {
             ))}
           </div>
           <span className="font-mono-custom text-xs font-bold text-white uppercase tracking-widest">
-            +1300 прибыльных трейдеров
+            {t["hero_traders"]}
           </span>
           <span className="font-mono-custom text-[#444] text-base">]</span>
         </motion.div>

@@ -1,7 +1,9 @@
 "use client";
 import SectionLabel from "./SectionLabel";
 import { useI18n } from "./i18n";
+import { useStore, Review } from "../../store/useStore";
 
+// ─── Fallback: текстовые отзывы (пока в админке не добавлены реальные) ─────────
 const testimonials = [
   { initials: "АБ", name: "Айбек Байжанов", roleKey: "t_role1" as const, textKey: "t1_text" as const },
   { initials: "НС", name: "Назгүл Сейткали", roleKey: "t_role2" as const, textKey: "t2_text" as const },
@@ -29,16 +31,14 @@ const extraKeys = {
   t9_text: "«Точность поражает, рекомендую всем трейдерам!»",
 } as Record<string, string>;
 
-function TestimonialCard({ initials, name, role, text }: { initials: string; name: string; role: string; text: string }) {
+function TextCard({ initials, name, role, text }: { initials: string; name: string; role: string; text: string }) {
   return (
     <div className="bg-white border border-[#E5E5E5] rounded-2xl p-6 mb-4">
       <div className="text-[#02B365] text-xs tracking-widest mb-3">★★★★★</div>
       <p className="text-sm text-[#3B3B3B] leading-relaxed mb-4 font-exo">{text}</p>
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ background: "linear-gradient(135deg,#02B365,#19BB74)" }}>
-          {initials}
-        </div>
+          style={{ background: "linear-gradient(135deg,#02B365,#19BB74)" }}>{initials}</div>
         <div>
           <div className="font-semibold text-sm text-[#0A0A0A]">{name}</div>
           <div className="text-xs text-[#6B6B6B] font-exo">{role}</div>
@@ -48,13 +48,32 @@ function TestimonialCard({ initials, name, role, text }: { initials: string; nam
   );
 }
 
+// ─── Карточка реального отзыва (скриншот) ─────────────────────────────────────
+function ReviewCard({ r }: { r: Review }) {
+  return (
+    <div className="bg-white border border-[#E5E5E5] rounded-2xl overflow-hidden mb-4 shadow-sm">
+      <img src={r.image} alt={r.name || "отзыв"} className="w-full h-auto block" />
+      {(r.name || r.source) && (
+        <div className="px-4 py-3 flex items-center gap-2 border-t border-[#eee]">
+          {r.name && <span className="font-exo font-semibold text-sm text-[#0A0A0A] truncate">{r.name}</span>}
+          {r.source && <span className="font-mono-custom text-[10px] text-[#999] ml-auto shrink-0">{r.source}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Testimonials() {
   const { t } = useI18n();
-  const cols = [
-    testimonials.slice(0, 3),
-    testimonials.slice(3, 6),
-    testimonials.slice(6, 9),
-  ];
+  const { reviews } = useStore();
+  const active = reviews.filter(r => r.active);
+
+  // 3 колонки: либо реальные отзывы, либо текстовый fallback
+  const useReal = active.length > 0;
+  const reviewCols: Review[][] = [[], [], []];
+  active.forEach((r, i) => reviewCols[i % 3].push(r));
+
+  const textCols = [testimonials.slice(0, 3), testimonials.slice(3, 6), testimonials.slice(6, 9)];
 
   return (
     <section id="testimonials" className="py-24 px-8 bg-[#F4F4F5]">
@@ -66,31 +85,23 @@ export default function Testimonials() {
           </h2>
         </div>
 
-        <div className="relative overflow-hidden" style={{ height: 560 }}>
+        <div className="relative overflow-hidden" style={{ height: 620 }}>
           <div className="absolute top-0 left-0 right-0 h-28 z-10 pointer-events-none"
             style={{ background: "linear-gradient(to bottom, #F4F4F5, transparent)" }} />
           <div className="absolute bottom-0 left-0 right-0 h-28 z-10 pointer-events-none"
             style={{ background: "linear-gradient(to top, #F4F4F5, transparent)" }} />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
-            {cols.map((col, ci) => (
-              <div key={ci} className={`hidden md:block ${ci === 0 ? "block" : ""}`}>
-                <div
-                  className="flex flex-col"
-                  style={{
-                    animation: `scrollUp 22s linear infinite`,
-                    animationDelay: `${[-0, -7, -14][ci]}s`,
-                  }}
-                >
-                  {[...col, ...col].map((item, i) => (
-                    <TestimonialCard
-                      key={i}
-                      initials={item.initials}
-                      name={item.name}
-                      role={extraKeys[item.roleKey] ?? ""}
-                      text={extraKeys[item.textKey] ?? ""}
-                    />
-                  ))}
+            {[0, 1, 2].map((ci) => (
+              <div key={ci} className={`${ci === 0 ? "block" : "hidden md:block"}`}>
+                <div className="flex flex-col"
+                  style={{ animation: "scrollUp 26s linear infinite", animationDelay: `${[-0, -9, -18][ci]}s` }}>
+                  {useReal
+                    ? [...reviewCols[ci], ...reviewCols[ci]].map((r, i) => <ReviewCard key={i} r={r} />)
+                    : [...textCols[ci], ...textCols[ci]].map((item, i) => (
+                        <TextCard key={i} initials={item.initials} name={item.name}
+                          role={extraKeys[item.roleKey] ?? ""} text={extraKeys[item.textKey] ?? ""} />
+                      ))}
                 </div>
               </div>
             ))}

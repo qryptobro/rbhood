@@ -48,6 +48,14 @@ export interface Broker {
   featured: boolean;
 }
 
+export interface Review {
+  id: number;
+  image: string;   // скриншот отзыва (base64)
+  name: string;    // имя автора (опционально)
+  source: string;  // источник: WhatsApp / Trustpilot / Telegram и т.п.
+  active: boolean;
+}
+
 export interface Lesson {
   id: number;
   title: string;
@@ -99,6 +107,13 @@ interface Store {
   updateBroker: (id: number, data: Partial<Omit<Broker, "id">>) => void;
   deleteBroker: (id: number) => void;
   toggleBroker: (id: number) => void;
+
+  // Reviews (отзывы со скриншотами)
+  reviews: Review[];
+  addReview: (review: Omit<Review, "id">) => void;
+  updateReview: (id: number, data: Partial<Omit<Review, "id">>) => void;
+  deleteReview: (id: number) => void;
+  toggleReview: (id: number) => void;
 
   // Courses
   courses: Course[];
@@ -241,6 +256,17 @@ export const useStore = create<Store>()(
         set((s) => ({ brokers: s.brokers.filter((b) => b.id !== id) })),
       toggleBroker: (id) =>
         set((s) => ({ brokers: s.brokers.map((b) => b.id === id ? { ...b, active: !b.active } : b) })),
+
+      // ── Reviews ────────────────────────────────────────────────────────────
+      reviews: [],
+      addReview: (review) =>
+        set((s) => ({ reviews: [...s.reviews, { ...review, id: Date.now() }] })),
+      updateReview: (id, data) =>
+        set((s) => ({ reviews: s.reviews.map((r) => r.id === id ? { ...r, ...data } : r) })),
+      deleteReview: (id) =>
+        set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
+      toggleReview: (id) =>
+        set((s) => ({ reviews: s.reviews.map((r) => r.id === id ? { ...r, active: !r.active } : r) })),
 
       // ── Courses ────────────────────────────────────────────────────────────
       courses: [

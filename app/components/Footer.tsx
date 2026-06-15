@@ -23,16 +23,22 @@ export default function Footer() {
     {
       title: t["footer_legal"],
       links: [
-        { label: t["footer_terms"], href: "#" },
-        { label: t["footer_disclaimer"], href: "#" },
-        { label: t["footer_legal_notices"], href: "#" },
-        { label: t["footer_privacy"], href: "#" },
-        { label: t["footer_risk"], href: "#" },
+        { label: t["footer_terms"], href: "/legal/terms" },
+        { label: t["footer_disclaimer"], href: "/legal/disclaimer" },
+        { label: t["footer_legal_notices"], href: "/legal/legal-notices" },
+        { label: t["footer_privacy"], href: "/legal/privacy" },
+        { label: t["footer_risk"], href: "/legal/risk-disclosure" },
       ],
     },
   ];
 
-  const legalInline = [t["footer_terms"], t["footer_disclaimer"], t["footer_legal_notices"], t["footer_privacy"], t["footer_risk"]];
+  const legalInline = [
+    { label: t["footer_terms"], href: "/legal/terms" },
+    { label: t["footer_disclaimer"], href: "/legal/disclaimer" },
+    { label: t["footer_legal_notices"], href: "/legal/legal-notices" },
+    { label: t["footer_privacy"], href: "/legal/privacy" },
+    { label: t["footer_risk"], href: "/legal/risk-disclosure" },
+  ];
 
   return (
     <footer className="pt-16 pb-8 px-6 border-t border-[#141414]" style={{ background: "#080808" }}>
@@ -86,7 +92,7 @@ export default function Footer() {
           <div className="font-exo text-xs text-[#555]">{t["footer_copy"]}</div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             {legalInline.map((l) => (
-              <a key={l} href="#" className="font-exo text-xs text-[#555] hover:text-[#02B365] transition-colors">{l}</a>
+              <a key={l.label} href={l.href} className="font-exo text-xs text-[#555] hover:text-[#02B365] transition-colors">{l.label}</a>
             ))}
           </div>
           <div className="font-exo text-xs text-[#444]">{t["footer_made_by"]}</div>

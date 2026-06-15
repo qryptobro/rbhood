@@ -159,7 +159,11 @@ export default function FeatureBlocks() {
           </div>
           <h2 className="font-orbitron font-bold text-white mx-auto mb-4"
             style={{ fontSize: "clamp(26px, 3.4vw, 44px)", letterSpacing: "-0.5px", lineHeight: 1.2, maxWidth: 640 }}>
-            {t["fb_sec_title"]}
+            {t["fb_sec_title"].split(/(\d+)/).map((part, i) =>
+              /^\d+$/.test(part)
+                ? <span key={i} style={{ fontFamily: "'Exo 2', sans-serif", fontWeight: 800 }}>{part}</span>
+                : <span key={i}>{part}</span>
+            )}
           </h2>
           <p className="font-exo text-[#666] mx-auto" style={{ fontSize: "clamp(14px, 1.4vw, 17px)", maxWidth: 480 }}>
             {t["fb_sec_sub"]}

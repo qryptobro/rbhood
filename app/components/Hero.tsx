@@ -2,7 +2,16 @@
 import { motion } from "framer-motion";
 import { useI18n } from "./i18n";
 
-const AVATARS = ["АБ","НС","ДҚ","МӘ","ЗТ","ЕН"];
+// Декоративная зелёная свеча по углам hero (как у BullGPT)
+function HeroCandle({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="64" viewBox="0 0 16 64" className={`absolute pointer-events-none ${className ?? ""}`}>
+      <line x1="8" y1="2" x2="8" y2="16" stroke="#02B365" strokeWidth="2" />
+      <line x1="8" y1="48" x2="8" y2="62" stroke="#02B365" strokeWidth="2" />
+      <rect x="2" y="16" width="12" height="32" rx="2" fill="#02B365" />
+    </svg>
+  );
+}
 
 export default function Hero() {
   const { t } = useI18n();
@@ -21,6 +30,12 @@ export default function Hero() {
         style={{ background: "linear-gradient(90deg, transparent, rgba(2,179,101,0.5), transparent)" }} />
       <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(2,179,101,0.07) 0%, transparent 65%)" }} />
+
+      {/* Свечи-обрамление по углам (как у BullGPT) — только на десктопе */}
+      <HeroCandle className="hidden lg:block top-24 left-6 xl:left-12" />
+      <HeroCandle className="hidden lg:block top-24 right-6 xl:right-12" />
+      <HeroCandle className="hidden lg:block top-[460px] left-6 xl:left-12" />
+      <HeroCandle className="hidden lg:block top-[460px] right-6 xl:right-12" />
 
       <div className="w-full max-w-[900px] mx-auto relative z-10 px-4">
         {/* badge */}
@@ -132,7 +147,7 @@ export default function Hero() {
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-[1320px] mx-auto mt-16 px-4 md:px-8"
+        className="relative z-10 w-full max-w-[1200px] mx-auto mt-12 md:mt-20 px-4 md:px-12"
       >
         <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden"
           style={{ background: "#0d0d0d", boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 40px 80px rgba(0,0,0,0.6)" }}>

@@ -1,0 +1,21 @@
+# Caddy reverse proxy для rbhood-ai на Windows-сервере.
+# Авто-HTTPS (Let's Encrypt). Поставь домен ниже и запусти: caddy run
+#
+# Маршрутизация:
+#   ai.rbhood.kz/api/*  → backend (Node, :4000)
+#   ai.rbhood.kz/*      → frontend (Next.js, :3000)
+# MT5-мост (:5001) наружу НЕ выставляется — только backend ходит к нему локально.
+
+ai.rbhood.kz {
+	encode gzip
+
+	# API → backend
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# всё остальное → frontend
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

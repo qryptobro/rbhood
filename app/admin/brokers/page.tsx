@@ -23,7 +23,23 @@ function BrokerModal({
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setLogo(reader.result as string);
+    reader.onload = () => {
+      // Сжимаем логотип до 128px, чтобы не переполнять localStorage
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 128;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) { ctx.drawImage(img, 0, 0, w, h); setLogo(canvas.toDataURL("image/png")); }
+        else setLogo(reader.result as string);
+      };
+      img.onerror = () => setLogo(reader.result as string);
+      img.src = reader.result as string;
+    };
     reader.readAsDataURL(file);
   };
 

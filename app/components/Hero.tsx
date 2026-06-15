@@ -127,89 +127,24 @@ export default function Hero() {
         </motion.div>
       </div>
 
-      {/* Chart mockup */}
+      {/* Mockup video */}
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full mt-16 px-4 md:px-8"
+        className="relative z-10 w-full max-w-[1000px] mx-auto mt-16 px-4 md:px-8"
       >
         <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden"
           style={{ background: "#0d0d0d", boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 40px 80px rgba(0,0,0,0.6)" }}>
-          {/* Window bar */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]" style={{ background: "#111" }}>
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
-              <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-              <div className="w-3 h-3 rounded-full bg-[#28C840]" />
-            </div>
-            <div className="flex-1 flex items-center gap-3 ml-3">
-              <span className="font-mono-custom text-xs text-white font-bold">BTCUSDT</span>
-              <span className="font-mono-custom text-[10px] text-[#444]">1D</span>
-              <span className="font-mono-custom text-[10px] text-[#444]">Indicators</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono-custom text-[10px] text-[#02B365] bg-[#02B36515] border border-[#02B36530] px-2 py-0.5 rounded">● LIVE</span>
-            </div>
-          </div>
-
-          {/* Chart area */}
-          <div className="relative" style={{ height: 460 }}>
-            {/* Price levels */}
-            {[68200, 67400, 66600, 65800, 65000].map((p, i) => (
-              <div key={i} className="absolute left-0 right-0 flex items-center" style={{ top: `${i * 22 + 8}%` }}>
-                <div className="w-full h-px opacity-20" style={{ background: "#ffffff10" }} />
-                <span className="absolute right-3 font-mono-custom text-[10px] text-[#333]">{p.toLocaleString()}</span>
-              </div>
-            ))}
-
-            {/* Candles SVG */}
-            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 900 340" preserveAspectRatio="none">
-              {/* Bullish candles */}
-              {[
-                [60,180,120,220],[110,160,100,200],[160,140,90,175],[210,120,80,160],
-                [260,100,70,140],[310,130,90,165],[360,110,75,148],[410,90,60,125],
-                [460,70,50,105],[510,85,60,118],[560,65,45,100],[610,80,55,115],
-                [660,55,40,90],[710,70,48,102],[760,45,30,78],[810,60,42,95],[860,40,25,70]
-              ].map(([x, y, w, h], i) => {
-                const bull = i % 3 !== 2;
-                return (
-                  <g key={i}>
-                    <line x1={x + w/2} y1={y - 15} x2={x + w/2} y2={y + h + 15} stroke={bull ? "#02B365" : "#EF4444"} strokeWidth="1.5" opacity="0.6"/>
-                    <rect x={x} y={y} width={w} height={h} fill={bull ? "#02B365" : "#EF4444"} opacity={bull ? "0.85" : "0.75"} rx="2"/>
-                  </g>
-                );
-              })}
-              {/* Moving average line */}
-              <polyline
-                points="60,200 160,185 260,160 360,148 460,130 560,118 660,100 760,88 860,72"
-                fill="none" stroke="#F59E0B" strokeWidth="1.5" opacity="0.7" strokeDasharray="4 2"/>
-              {/* Signal line */}
-              <polyline
-                points="60,210 160,195 260,168 360,155 460,138 560,124 660,106 760,94 860,78"
-                fill="none" stroke="#02B365" strokeWidth="2" opacity="0.5"/>
-            </svg>
-
-            {/* BUY signal marker */}
-            <div className="absolute" style={{ left: "28%", top: "58%" }}>
-              <div className="flex flex-col items-center gap-1">
-                <div className="bg-[#02B365] text-white font-orbitron text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-lg">BUY</div>
-                <div className="w-px h-6 bg-[#02B365] opacity-60" />
-              </div>
-            </div>
-
-            {/* AI Analysis overlay */}
-            <div className="absolute top-4 left-4 rounded-xl border border-[#02B36530] p-3" style={{ background: "rgba(2,179,101,0.08)", backdropFilter: "blur(8px)" }}>
-              <div className="font-mono-custom text-[9px] text-[#02B365] uppercase tracking-widest mb-1.5">rbhood ai · анализ</div>
-              <div className="font-orbitron text-lg font-bold text-[#02B365]">BUY</div>
-              <div className="font-mono-custom text-[10px] text-[#666] mt-0.5">Score: 87/100</div>
-            </div>
-
-            {/* Price tag */}
-            <div className="absolute right-12 top-1/3 font-mono-custom text-xs text-white bg-[#02B365] px-2 py-0.5 rounded">
-              $67,842
-            </div>
-          </div>
+          <video
+            src="/hero-mockup.mp4"
+            poster="/hero-mockup.jpg"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-auto block"
+          />
         </div>
 
         {/* Bottom glow */}

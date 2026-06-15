@@ -25,14 +25,6 @@ export default function Faq() {
           <h2 className="font-orbitron font-bold text-[#0A0A0A] mb-4" style={{ fontSize: "clamp(22px, 3vw, 38px)", letterSpacing: "-0.5px", lineHeight: 1.15 }}>
             {t.faq_title}
           </h2>
-          <p className="text-[#6B6B6B] text-sm leading-relaxed mb-8 font-exo">{t.faq_sub}</p>
-          <a
-            href="mailto:support@rbhood.ai"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sm text-white cursor-pointer transition-all duration-150 hover:opacity-90 hover:-translate-y-px font-exo"
-            style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 19px #1BF29426" }}
-          >
-            {t.faq_contact}
-          </a>
         </div>
 
         {/* right */}

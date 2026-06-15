@@ -132,7 +132,7 @@ export default function Hero() {
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-[1000px] mx-auto mt-16 px-4 md:px-8"
+        className="relative z-10 w-full max-w-[1320px] mx-auto mt-16 px-4 md:px-8"
       >
         <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden"
           style={{ background: "#0d0d0d", boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 40px 80px rgba(0,0,0,0.6)" }}>

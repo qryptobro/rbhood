@@ -1,16 +1,13 @@
-# bootstrap-server.ps1 — полная автоустановка rbhood-ai на чистом Windows-сервере.
-# Запускать на СЕРВЕРЕ (по RDP), в PowerShell ОТ ИМЕНИ АДМИНИСТРАТОРА.
+# bootstrap-server.ps1 - full auto-install of rbhood-ai on a clean Windows server.
+# Run ON THE SERVER (via RDP), in PowerShell AS ADMINISTRATOR.
 #
-# Пример:
+# Example:
 #   Set-ExecutionPolicy Bypass -Scope Process -Force
 #   .\bootstrap-server.ps1 -OpenRouterKey "sk-or-v1-..." -Domain "ai.rbhood.kz"
 #
-# ЧТО ДЕЛАЕТ САМ: Chocolatey, Node, Python, Git, Caddy, NSSM, клон репо,
-# npm/pip install, сборка frontend, службы автозапуска, firewall 80/443.
-#
-# ЧТО НУЖНО СДЕЛАТЬ РУКАМИ (GUI/логин — не автоматизируется):
-#   1) Установить терминал FxPro MT5 и войти в счёт (fxpro.com → MetaTrader 5).
-#   2) В DNS rbhood.kz добавить A-запись: <Domain> → IP этого сервера.
+# DOES AUTOMATICALLY: Chocolatey, Node, Python, Caddy, NSSM, deps, build,
+# autostart services, firewall 80/443.
+# DO MANUALLY: install + login FxPro MT5; add DNS A-record Domain -> server IP.
 
 param(
   [Parameter(Mandatory=$true)][string]$OpenRouterKey,
@@ -23,43 +20,42 @@ param(
 $ErrorActionPreference = "Stop"
 function Step($m) { Write-Host "`n=== $m ===" -ForegroundColor Green }
 
-# ── 1. Chocolatey ──
+# 1. Chocolatey
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-  Step "Установка Chocolatey"
+  Step "Installing Chocolatey"
   Set-ExecutionPolicy Bypass -Scope Process -Force
   [System.Net.ServicePointManager]::SecurityProtocol = 3072
   iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
   $env:Path += ";C:\ProgramData\chocolatey\bin"
 }
 
-# ── 2. Пакеты ──
-Step "Установка Node, Python, Git, Caddy, NSSM"
-choco install -y nodejs-lts python git caddy nssm
-# обновляем PATH в текущей сессии
+# 2. Packages
+Step "Installing Node, Python, Caddy, NSSM"
+choco install -y nodejs-lts python caddy nssm
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# ── 3. Клон / обновление репо ──
-Step "Клонирование репозитория"
-if (Test-Path $InstallDir) {
+# 3. Repo (already cloned? pull. else clone)
+Step "Repo"
+if (Test-Path "$InstallDir\.git") {
   cd $InstallDir; git pull
-} else {
+} elseif (-not (Test-Path $InstallDir)) {
   git clone $RepoUrl $InstallDir
-  cd $InstallDir
 }
+cd $InstallDir
 
-# ── 4. Зависимости ──
-Step "npm install (root + backend) + pip (мост)"
+# 4. Dependencies
+Step "Installing dependencies (npm + pip)"
 npm install
 cd "$InstallDir\backend"; npm install; cd $InstallDir
 python -m pip install -r "$InstallDir\mt5-bridge\requirements.txt"
 
-# ── 5. .env.local для frontend + сборка ──
-Step "Сборка frontend"
+# 5. Frontend env + build
+Step "Building frontend"
 "NEXT_PUBLIC_API_URL=https://$Domain" | Out-File -Encoding utf8 "$InstallDir\.env.local"
 npm run build
 
-# ── 6. Caddyfile с доменом ──
-Step "Caddyfile"
+# 6. Caddyfile with domain
+Step "Writing Caddyfile"
 @"
 $Domain {
 	encode gzip
@@ -68,18 +64,19 @@ $Domain {
 }
 "@ | Out-File -Encoding ascii "$InstallDir\deploy\Caddyfile.prod"
 
-# ── 7. Службы через NSSM (автозапуск, переживают перезагрузку) ──
-Step "Регистрация служб (NSSM)"
+# 7. Services via NSSM (auto-start, survive reboot)
+Step "Registering services (NSSM)"
 $node   = (Get-Command node).Source
 $npm    = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source; if (-not $npm) { $npm = (Get-Command npm).Source }
 $python = (Get-Command python).Source
 $caddy  = (Get-Command caddy).Source
 
-function Reg($name, $exe, $args, $dir, $env) {
-  & nssm stop $name 2>$null; & nssm remove $name confirm 2>$null
+function Reg($name, $exe, $args, $dir, $envArr) {
+  & nssm stop $name 2>$null
+  & nssm remove $name confirm 2>$null
   & nssm install $name $exe $args
   & nssm set $name AppDirectory $dir
-  if ($env) { & nssm set $name AppEnvironmentExtra $env }
+  if ($envArr) { & nssm set $name AppEnvironmentExtra $envArr }
   & nssm set $name Start SERVICE_AUTO_START
   & nssm start $name
 }
@@ -91,16 +88,16 @@ Reg "rbhood-back"  $node   "`"$InstallDir\backend\index.js`""    "$InstallDir\ba
   "MT5_BRIDGE_URL=http://127.0.0.1:5001",
   "PORT=4000"
 )
-Reg "rbhood-front" $npm    "run start"                            $InstallDir $null
+Reg "rbhood-front" $npm    "run start"  $InstallDir $null
 Reg "rbhood-caddy" $caddy  "run --config `"$InstallDir\deploy\Caddyfile.prod`"" $InstallDir $null
 
-# ── 8. Firewall ──
-Step "Открытие портов 80/443"
+# 8. Firewall
+Step "Opening ports 80/443"
 New-NetFirewallRule -DisplayName "HTTP"  -Direction Inbound -Protocol TCP -LocalPort 80  -Action Allow -ErrorAction SilentlyContinue | Out-Null
 New-NetFirewallRule -DisplayName "HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 
-Write-Host "`n================ ГОТОВО ================" -ForegroundColor Green
-Write-Host "Осталось вручную:" -ForegroundColor Yellow
-Write-Host "  1) Установить и залогинить терминал FxPro MT5 (fxpro.com → MetaTrader 5)."
-Write-Host "  2) DNS: A-запись $Domain -> IP этого сервера."
-Write-Host "После этого открой https://$Domain"
+Write-Host "`n================ DONE ================" -ForegroundColor Green
+Write-Host "Manual steps left:" -ForegroundColor Yellow
+Write-Host "  1) Install and login FxPro MT5 terminal (fxpro.com -> MetaTrader 5)."
+Write-Host "  2) DNS: A-record $Domain -> this server IP."
+Write-Host "Then open https://$Domain"

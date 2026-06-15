@@ -138,7 +138,6 @@ export default function Hero() {
           style={{ background: "#0d0d0d", boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 40px 80px rgba(0,0,0,0.6)" }}>
           <video
             src="/hero-mockup.mp4"
-            poster="/hero-mockup.jpg"
             autoPlay
             loop
             muted

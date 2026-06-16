@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const NAV = [
   { href: "/admin",             label: "Дашборд",        icon: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
@@ -76,8 +78,32 @@ function AdminSidebar({ open }: { open: boolean }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [allowed, setAllowed] = useState(false); // доступ только для ADMIN
   const path = usePathname();
+  const router = useRouter();
   const currentPage = NAV.find(n => n.href === "/admin" ? path === "/admin" : path.startsWith(n.href));
+
+  // Гейт: пускаем в админку только пользователей с ролью ADMIN
+  useEffect(() => {
+    const token = localStorage.getItem("rbhood-token");
+    if (!token) { router.replace("/login"); return; }
+    fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async r => {
+        if (!r.ok) { router.replace("/login"); return; }
+        const me = await r.json();
+        if (me.role === "ADMIN") setAllowed(true);
+        else router.replace("/dashboard"); // не админ — в обычный кабинет
+      })
+      .catch(() => router.replace("/login"));
+  }, [router]);
+
+  if (!allowed) {
+    return (
+      <div className="flex h-screen items-center justify-center" style={{ background: "#0e0e0e" }}>
+        <div className="font-exo text-sm text-[#444]">Проверка доступа…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#0e0e0e" }}>

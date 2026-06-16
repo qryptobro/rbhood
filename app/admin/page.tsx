@@ -2,19 +2,13 @@
 import { useState } from "react";
 
 const STATS = [
-  { label: "Пользователи",     value: "2 481",  delta: "+12%",  up: true,  icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
-  { label: "Активные планы",   value: "1 043",  delta: "+8%",   up: true,  icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" },
-  { label: "Выручка (мес.)",   value: "$18 320",delta: "+23%",  up: true,  icon: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
-  { label: "Новых сегодня",    value: "37",     delta: "-4%",   up: false, icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
+  { label: "Пользователи",     value: "0",  delta: "",  up: true,  icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
+  { label: "Активные планы",   value: "0",  delta: "",  up: true,  icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" },
+  { label: "Выручка (мес.)",   value: "$0", delta: "",  up: true,  icon: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
+  { label: "Новых сегодня",    value: "0",  delta: "",  up: true,  icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
 ];
 
-const RECENT_USERS = [
-  { name: "Алихан Дауке",   email: "ali@gmail.com",    plan: "Pro",     status: "active",  date: "13 июн 2026" },
-  { name: "Марина К.",      email: "marina@mail.ru",   plan: "Starter", status: "active",  date: "13 июн 2026" },
-  { name: "Jhon Smith",     email: "jhon@yahoo.com",   plan: "Pro",     status: "trial",   date: "12 июн 2026" },
-  { name: "Азиз Рахимов",   email: "aziz@proton.me",   plan: "Elite",   status: "active",  date: "12 июн 2026" },
-  { name: "Sara L.",        email: "sara@outlook.com", plan: "Starter", status: "expired", date: "11 июн 2026" },
-];
+const RECENT_USERS: { name: string; email: string; plan: string; status: string; date: string }[] = [];
 
 const PLAN_COLORS: Record<string, string> = { Pro: "#02B365", Elite: "#F59E0B", Starter: "#4A90D9" };
 const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
@@ -24,7 +18,7 @@ const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }>
 };
 
 const ALL_MONTHS = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
-const ALL_VALUES = [40, 62, 50, 78, 55, 90, 68, 82, 95, 70, 85, 100];
+const ALL_VALUES = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 export default function AdminDashboard() {
   const [period, setPeriod] = useState<"3м"|"6м"|"12м">("6м");
@@ -50,10 +44,12 @@ export default function AdminDashboard() {
                   <path d={s.icon} />
                 </svg>
               </div>
-              <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg"
-                style={{ color: s.up ? "#02B365" : "#EF4444", background: s.up ? "#02B36515" : "#EF444415" }}>
-                {s.delta}
-              </span>
+              {s.delta && (
+                <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg"
+                  style={{ color: s.up ? "#02B365" : "#EF4444", background: s.up ? "#02B36515" : "#EF444415" }}>
+                  {s.delta}
+                </span>
+              )}
             </div>
             <div className="font-orbitron font-bold text-xl text-white">{s.value}</div>
             <div className="font-exo text-xs text-[#444] mt-0.5">{s.label}</div>

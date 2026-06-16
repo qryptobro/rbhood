@@ -1,11 +1,7 @@
 "use client";
 import { useState } from "react";
 
-const SENT = [
-  { id: 1, subject: "Новые функции AI анализа", sent: 2481, opened: 1204, date: "10 июн 2026", status: "sent"   },
-  { id: 2, subject: "Промо: Elite -30% в июне",  sent: 2481, opened: 893,  date: "05 июн 2026", status: "sent"   },
-  { id: 3, subject: "Обновление тарифных планов", sent: 0,    opened: 0,    date: "15 июн 2026", status: "draft"  },
-];
+const SENT: { id: number; subject: string; sent: number; opened: number; date: string; status: string }[] = [];
 
 export default function MailingPage() {
   const [subject, setSubject] = useState("");

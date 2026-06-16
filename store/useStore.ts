@@ -231,11 +231,11 @@ export const useStore = create<Store>()(
 
       // ── Auto triggers ──────────────────────────────────────────────────────
       triggers: [
-        { id: 1, name: "Добро пожаловать",       trigger: "Регистрация",      delay: "Сразу",   active: true,  sent: 2481 },
-        { id: 2, name: "Подписка истекает",       trigger: "Expired -3 дня",   delay: "Авто",    active: true,  sent: 108  },
-        { id: 3, name: "Повторная активация",     trigger: "Неактивен 7 дней", delay: "Авто",    active: false, sent: 340  },
-        { id: 4, name: "Апгрейд до Lifetime",     trigger: "Monthly > 30 дней",delay: "День 31", active: true,  sent: 217  },
-        { id: 5, name: "Подписка истекла",        trigger: "Expired",          delay: "День 0",  active: true,  sent: 189  },
+        { id: 1, name: "Добро пожаловать",       trigger: "Регистрация",      delay: "Сразу",   active: true,  sent: 0 },
+        { id: 2, name: "Подписка истекает",       trigger: "Expired -3 дня",   delay: "Авто",    active: true,  sent: 0 },
+        { id: 3, name: "Повторная активация",     trigger: "Неактивен 7 дней", delay: "Авто",    active: false, sent: 0 },
+        { id: 4, name: "Апгрейд до Lifetime",     trigger: "Monthly > 30 дней",delay: "День 31", active: true,  sent: 0 },
+        { id: 5, name: "Подписка истекла",        trigger: "Expired",          delay: "День 0",  active: true,  sent: 0 },
       ],
       toggleTrigger: (id) =>
         set((s) => ({
@@ -243,11 +243,7 @@ export const useStore = create<Store>()(
         })),
 
       // ── Brokers ────────────────────────────────────────────────────────────
-      brokers: [
-        { id: 1, name: "Exness",  logo: "", link: "https://exness.com",  description: "Низкие спреды, быстрый вывод",    active: true, featured: true  },
-        { id: 2, name: "XM",      logo: "", link: "https://xm.com",      description: "Бонусы для новых пользователей",  active: true, featured: false },
-        { id: 3, name: "OctaFX", logo: "", link: "https://octafx.com",  description: "Исламский счёт, копитрейдинг",    active: true, featured: false },
-      ],
+      brokers: [],
       addBroker: (broker) =>
         set((s) => ({ brokers: [...s.brokers, { ...broker, id: Date.now() }] })),
       updateBroker: (id, data) =>
@@ -362,8 +358,8 @@ export const useStore = create<Store>()(
         })),
     }),
     {
-      name: "rbhood-admin-store-v6", // смена имени ключа = гарантированный сброс на дефолты
-      version: 6,
+      name: "rbhood-admin-store-v7", // смена имени ключа = гарантированный сброс на дефолты
+      version: 7,
       migrate: () => ({}),
     }
   )

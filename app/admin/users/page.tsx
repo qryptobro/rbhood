@@ -1,16 +1,7 @@
 "use client";
 import { useState } from "react";
 
-const USERS = [
-  { id: 1,  name: "Алихан Дауке",    email: "ali@gmail.com",      plan: "Pro",     status: "active",  reg: "01 июн 2026", signals: 48 },
-  { id: 2,  name: "Марина К.",        email: "marina@mail.ru",     plan: "Starter", status: "active",  reg: "05 июн 2026", signals: 12 },
-  { id: 3,  name: "Jhon Smith",       email: "jhon@yahoo.com",     plan: "Pro",     status: "active",  reg: "10 июн 2026", signals: 7  },
-  { id: 4,  name: "Азиз Рахимов",    email: "aziz@proton.me",     plan: "Elite",   status: "active",  reg: "02 мая 2026", signals: 120},
-  { id: 5,  name: "Sara L.",          email: "sara@outlook.com",   plan: "Starter", status: "expired", reg: "14 апр 2026", signals: 3  },
-  { id: 6,  name: "Ержан М.",         email: "erzhan@kz.kz",       plan: "Elite",   status: "active",  reg: "20 мар 2026", signals: 94 },
-  { id: 7,  name: "Иван Петров",      email: "ivan@yandex.ru",     plan: "Pro",     status: "active",  reg: "11 мая 2026", signals: 65 },
-  { id: 8,  name: "Aisha T.",         email: "aisha@gmail.com",    plan: "Starter", status: "active",  reg: "12 июн 2026", signals: 2  },
-];
+const USERS: { id: number; name: string; email: string; plan: string; status: string; reg: string; signals: number }[] = [];
 
 const PLAN_COLORS: Record<string, string> = { Pro: "#02B365", Elite: "#F59E0B", Starter: "#4A90D9" };
 const STATUS: Record<string, { color: string; bg: string; label: string }> = {

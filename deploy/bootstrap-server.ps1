@@ -66,19 +66,21 @@ $Domain {
 
 # 7. Services via NSSM (auto-start, survive reboot)
 Step "Registering services (NSSM)"
+$ErrorActionPreference = "Continue"  # nssm stop/remove on a missing service is fine
 $node   = (Get-Command node).Source
 $npm    = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source; if (-not $npm) { $npm = (Get-Command npm).Source }
 $python = (Get-Command python).Source
 $caddy  = (Get-Command caddy).Source
 
 function Reg($name, $exe, $args, $dir, $envArr) {
-  & nssm stop $name 2>$null
-  & nssm remove $name confirm 2>$null
-  & nssm install $name $exe $args
-  & nssm set $name AppDirectory $dir
-  if ($envArr) { & nssm set $name AppEnvironmentExtra $envArr }
-  & nssm set $name Start SERVICE_AUTO_START
-  & nssm start $name
+  nssm stop $name 2>&1 | Out-Null
+  nssm remove $name confirm 2>&1 | Out-Null
+  nssm install $name $exe $args 2>&1 | Out-Null
+  nssm set $name AppDirectory $dir 2>&1 | Out-Null
+  if ($envArr) { nssm set $name AppEnvironmentExtra $envArr 2>&1 | Out-Null }
+  nssm set $name Start SERVICE_AUTO_START 2>&1 | Out-Null
+  nssm start $name 2>&1 | Out-Null
+  Write-Host "  $name : registered" -ForegroundColor Cyan
 }
 
 Reg "rbhood-mt5"   $python "`"$InstallDir\mt5-bridge\server.py`"" "$InstallDir\mt5-bridge" $null

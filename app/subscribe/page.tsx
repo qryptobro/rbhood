@@ -33,11 +33,6 @@ function Paywall() {
         <button onClick={logout} className="ml-auto font-exo text-sm text-[#666] hover:text-white transition-colors">Выйти</button>
       </header>
 
-      <div className="text-center pt-12 px-6">
-        <h1 className="font-orbitron font-bold text-white mb-3" style={{ fontSize: "clamp(24px, 3.4vw, 40px)" }}>Выберите тариф</h1>
-        <p className="font-exo text-[#666] max-w-md mx-auto">Доступ к ИИ-анализу открывается по подписке. Выберите план ниже.</p>
-      </div>
-
       <Pricing paywall />
     </div>
   );

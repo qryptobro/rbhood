@@ -13,7 +13,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
   const plans = [
     {
       name: t["plan1_name"],
-      price: "40",
+      price: "19 990 ₸",
       period: t["plan1_period"],
       badge: t["plan1_badge"],
       desc: t["plan1_desc"],
@@ -24,7 +24,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
     },
     {
       name: t["plan2_name"],
-      price: "180",
+      price: "89 990 ₸",
       period: t["plan2_period"],
       badge: t["plan2_badge"],
       desc: t["plan2_desc"],
@@ -87,8 +87,8 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
 
               {/* Price */}
               <div className="flex items-baseline gap-1.5 mb-6">
-                <span className="font-orbitron font-bold text-white" style={{ fontSize: 52, letterSpacing: "-2px" }}>
-                  ${plan.price}
+                <span className="font-orbitron font-bold text-white" style={{ fontSize: 44, letterSpacing: "-2px" }}>
+                  {plan.price}
                 </span>
                 <span className="font-exo text-sm text-[#444]">{plan.period}</span>
               </div>

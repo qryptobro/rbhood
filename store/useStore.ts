@@ -185,7 +185,7 @@ export const useStore = create<Store>()(
         {
           id: 1,
           name: "Monthly",
-          price: 40,
+          price: 19990,
           period: "мес",
           color: "#02B365",
           features: [
@@ -199,7 +199,7 @@ export const useStore = create<Store>()(
         {
           id: 2,
           name: "Lifetime",
-          price: 180,
+          price: 89990,
           period: "навсегда",
           color: "#F59E0B",
           features: [

@@ -66,7 +66,7 @@ export default function PlansPage() {
               </div>
             ) : (
               <div className="flex items-baseline gap-1">
-                <span className="font-orbitron font-bold text-3xl text-white">${plan.price}</span>
+                <span className="font-orbitron font-bold text-3xl text-white">{plan.price.toLocaleString("ru-RU")} ₸</span>
                 <span className="font-mono text-xs text-[#444]">/{plan.period}</span>
               </div>
             )}

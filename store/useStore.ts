@@ -1,5 +1,39 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
+
+// Серверное хранилище: данные админки лежат на сервере (backend/data/store.json),
+// а не только в localStorage — поэтому иконки/брокеры/отзывы не исчезают и видны всем.
+// localStorage используется как мгновенный кэш-фоллбэк.
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+const serverStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API}/api/state`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d && typeof d.value === "string") {
+          try { localStorage.setItem(name, d.value); } catch { /* ignore */ }
+          return d.value;
+        }
+      }
+    } catch { /* сервер недоступен — берём из кэша */ }
+    try { return localStorage.getItem(name); } catch { return null; }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try { localStorage.setItem(name, value); } catch { /* ignore */ }
+    try {
+      await fetch(`${API}/api/state`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+    } catch { /* ignore — останется в кэше, синхронизируется позже */ }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try { localStorage.removeItem(name); } catch { /* ignore */ }
+  },
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -358,9 +392,10 @@ export const useStore = create<Store>()(
         })),
     }),
     {
-      name: "rbhood-admin-store-v7", // смена имени ключа = гарантированный сброс на дефолты
+      name: "rbhood-admin-store-v7",
       version: 7,
-      migrate: () => ({}),
+      storage: createJSONStorage(() => serverStorage), // данные на сервере, не теряются
+      migrate: (persisted) => persisted as never,       // НЕ стираем при смене версии
     }
   )
 );

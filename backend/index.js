@@ -5,7 +5,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
-app.use(express.json());
+app.use(express.json({ limit: "12mb" })); // иконки/логотипы base64 крупные
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "rbhood-backend" });
@@ -21,6 +21,7 @@ if (process.env.DATABASE_URL) {
 
 app.use("/api/analysis", require("./routes/analysis"));
 app.use("/api/quotes",   require("./routes/quotes"));
+app.use("/api/state",    require("./routes/state"));
 
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);

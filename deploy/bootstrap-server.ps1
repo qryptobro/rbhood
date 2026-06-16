@@ -59,8 +59,12 @@ Step "Writing Caddyfile"
 @"
 $Domain {
 	encode gzip
-	handle /api/* { reverse_proxy 127.0.0.1:4000 }
-	handle { reverse_proxy 127.0.0.1:3000 }
+	handle /api/* {
+		reverse_proxy 127.0.0.1:4000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
 }
 "@ | Out-File -Encoding ascii "$InstallDir\deploy\Caddyfile.prod"
 

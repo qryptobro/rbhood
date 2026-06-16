@@ -21,6 +21,7 @@ if (process.env.DATABASE_URL) {
   app.use("/api/auth",     require("./routes/auth"));
   app.use("/api/users",    require("./routes/users"));
   app.use("/api/payments", require("./routes/payments"));
+  app.use("/api/history",  require("./routes/history"));
 } else {
   console.warn("DATABASE_URL not set — auth/users routes disabled");
 }

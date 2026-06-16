@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 const STORAGE_KEY = "rbhood-analysis-history";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export interface HistoryItem {
   id: number;
@@ -26,21 +27,39 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  // Загружаем историю из localStorage при монтировании
+  // Загружаем историю: с сервера (привязана к аккаунту, видна на всех устройствах),
+  // localStorage используется как мгновенный кэш-фоллбэк
   useEffect(() => {
+    let cached: HistoryItem[] = [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setHistory(JSON.parse(raw));
+      if (raw) { cached = JSON.parse(raw); setHistory(cached); }
     } catch { /* ignore */ }
-    setHydrated(true);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("rbhood-token") : null;
+    if (token) {
+      fetch(`${API}/api/history`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then((server: HistoryItem[] | null) => { if (Array.isArray(server)) setHistory(server); })
+        .catch(() => { /* офлайн — остаёмся на кэше */ })
+        .finally(() => setHydrated(true));
+    } else {
+      setHydrated(true);
+    }
   }, []);
 
-  // Сохраняем при изменении (только после загрузки, чтобы не затереть пустым)
+  // Сохраняем при изменении: и в localStorage (кэш), и на сервер (для всех устройств)
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-    } catch { /* ignore */ }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch { /* ignore */ }
+    const token = typeof window !== "undefined" ? localStorage.getItem("rbhood-token") : null;
+    if (token) {
+      fetch(`${API}/api/history`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ history }),
+      }).catch(() => { /* офлайн — синхронизируется при следующем изменении */ });
+    }
   }, [history, hydrated]);
 
   const pushHistory = useCallback((item: Omit<HistoryItem, "id">) => {

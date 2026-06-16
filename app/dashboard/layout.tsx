@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { I18nProvider, useI18n, Lang } from "../components/i18n";
 import Sidebar from "./components/Sidebar";
@@ -58,6 +59,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { history, deleteHistory } = useHistory();
+  const router = useRouter();
+
+  // Гейт: без токена — на страницу входа
+  useEffect(() => {
+    if (!localStorage.getItem("rbhood-token")) router.replace("/login");
+  }, [router]);
 
   // Определяем мобильный вьюпорт и закрываем сайдбар по умолчанию
   useEffect(() => {

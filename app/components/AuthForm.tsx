@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "./i18n";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -10,15 +12,37 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const isSignup = mode === "signup";
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim() || (isSignup && !name.trim())) return;
-    // TODO: подключить реальную аутентификацию (backend + БД).
-    // Пока — переход в дашборд.
-    router.push("/dashboard");
+    setError("");
+    setLoading(true);
+    try {
+      const path = isSignup ? "/api/auth/register" : "/api/auth/login";
+      const body = isSignup ? { name, email, password } : { email, password };
+      const res = await fetch(`${API}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || (data.errors?.[0]?.msg) || "Ошибка");
+        return;
+      }
+      localStorage.setItem("rbhood-token", data.token);
+      localStorage.setItem("rbhood-user", JSON.stringify(data.user));
+      router.push("/dashboard");
+    } catch {
+      setError("Сервер недоступен. Попробуйте позже.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,7 +68,7 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
         {/* Google */}
         <button type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => setError("Google-вход скоро будет доступен")}
           className="w-full flex items-center justify-center gap-3 h-11 rounded-xl border border-[#222] font-exo font-semibold text-sm text-white hover:border-[#333] hover:bg-[#141414] transition-all mb-5">
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -95,10 +119,14 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
             </div>
           </div>
 
-          <button type="submit"
-            className="w-full h-11 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 hover:-translate-y-px mt-1"
+          {error && (
+            <div className="font-exo text-xs text-[#EF4444] bg-[#EF444410] border border-[#EF444425] rounded-lg px-3 py-2">{error}</div>
+          )}
+
+          <button type="submit" disabled={loading}
+            className="w-full h-11 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 hover:-translate-y-px mt-1 disabled:opacity-50"
             style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 20px rgba(2,179,101,0.3)" }}>
-            {isSignup ? t["auth_signup_btn"] : t["auth_signin_btn"]}
+            {loading ? "…" : (isSignup ? t["auth_signup_btn"] : t["auth_signin_btn"])}
           </button>
         </form>
 

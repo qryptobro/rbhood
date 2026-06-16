@@ -11,7 +11,8 @@ model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String
-  password  String
+  password  String?  // null у пользователей, вошедших через Google
+  googleId  String?  @unique
   plan      Plan     @default(FREE)
   role      Role     @default(USER)
   active    Boolean  @default(true)

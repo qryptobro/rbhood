@@ -97,7 +97,7 @@ export default function Nav() {
               )}
             </AnimatePresence>
           </div>
-          <a href="#pricing"
+          <a href="/register"
             className="hidden md:inline-flex items-center min-h-[38px] px-5 rounded-xl text-xs font-bold text-white cursor-pointer transition-all duration-200 hover:opacity-90 hover:-translate-y-px font-exo tracking-wide"
             style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 2px 12px rgba(2,179,101,0.3)" }}>
             {t["nav_cta"]}

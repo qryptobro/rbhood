@@ -38,7 +38,7 @@ export default function HowItWorks() {
 
         {/* CTA */}
         <div className="flex justify-center mb-12">
-          <a href="#pricing"
+          <a href="/register"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-2xl font-bold text-white text-sm font-exo transition-all hover:opacity-90 hover:-translate-y-0.5"
             style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 24px rgba(2,179,101,0.35)" }}>
             {t["nav_cta"]}

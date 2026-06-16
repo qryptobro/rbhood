@@ -39,7 +39,7 @@ export default function CtaBanner() {
           </h2>
           <p className="text-[#555] text-base leading-relaxed mb-10 font-exo max-w-md mx-auto">{t["cta_sub"]}</p>
           <div className="p-1 rounded-2xl inline-block" style={{ background: "#02B3651A" }}>
-            <a href="#pricing"
+            <a href="/register"
               className="inline-flex items-center gap-2 px-10 py-4 rounded-xl font-bold text-base text-white cursor-pointer transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 font-exo"
               style={{
                 background: "linear-gradient(90deg,#02B365,#19BB74)",

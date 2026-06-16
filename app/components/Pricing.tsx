@@ -90,7 +90,7 @@ export default function Pricing() {
               </div>
 
               {/* CTA */}
-              <button className="w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
+              <a href="/register" className="block text-center w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
                 style={plan.featured ? {
                   background: "linear-gradient(90deg,#02B365,#19BB74)",
                   boxShadow: "0 4px 20px rgba(2,179,101,0.3)",
@@ -99,7 +99,7 @@ export default function Pricing() {
                   border: "1px solid #02B36530",
                 }}>
                 {plan.btn}
-              </button>
+              </a>
 
               {/* Features */}
               <div>

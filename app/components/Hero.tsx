@@ -112,7 +112,7 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col items-center gap-3"
         >
-          <a href="#pricing"
+          <a href="/register"
             className="inline-flex items-center gap-2.5 px-10 py-4 rounded-2xl font-bold text-white text-base font-exo cursor-pointer transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5"
             style={{
               background: "linear-gradient(90deg,#02B365,#19BB74)",

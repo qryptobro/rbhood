@@ -55,6 +55,31 @@ function LangDropdown() {
   );
 }
 
+// Аватар реального пользователя — инициалы из имени/email, стабильный цвет по строке
+function UserAvatar() {
+  const [u, setU] = useState<{ name?: string; email?: string }>({});
+  useEffect(() => {
+    try { setU(JSON.parse(localStorage.getItem("rbhood-user") || "{}")); } catch { /* ignore */ }
+  }, []);
+
+  const label = (u.name || u.email || "").trim();
+  const initials = label
+    ? label.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()
+    : "?";
+
+  const palette = ["#02B365", "#4A90D9", "#F59E0B", "#A855F7", "#EF4444", "#10B981", "#EC4899"];
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  const bg = palette[h % palette.length];
+
+  return (
+    <div className="w-7 h-7 rounded-full flex items-center justify-center font-exo font-bold text-[11px] text-white select-none"
+      title={label} style={{ background: bg }}>
+      {initials}
+    </div>
+  );
+}
+
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -141,9 +166,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="ml-auto flex items-center gap-3">
             <LangDropdown />
-            <div className="w-7 h-7 rounded-full overflow-hidden border border-[#2a2a2a]">
-              <img src="https://i.pravatar.cc/28?img=12" alt="" className="w-full h-full object-cover" />
-            </div>
+            <UserAvatar />
           </div>
         </header>
 

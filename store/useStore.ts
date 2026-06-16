@@ -90,6 +90,14 @@ export interface Review {
   active: boolean;
 }
 
+export interface Trader {
+  id: number;
+  name: string;
+  country: string;  // флаг-эмодзи (🇰🇿) или код страны
+  volume: string;   // объём, как показывать ($4,820,000)
+  days: number;     // дней с брокером
+}
+
 export interface Promo {
   id: number;
   code: string;                    // промокод, напр. WELCOME20
@@ -160,6 +168,13 @@ interface Store {
   // Hero-аватары (бейдж "+1300 трейдеров" на лендинге) — до 3 шт, base64
   heroAvatars: string[];
   setHeroAvatars: (imgs: string[]) => void;
+
+  // Топ-трейдеры (вкладка в дашборде) — управляются/импортируются в админке
+  topTraders: Trader[];
+  setTopTraders: (list: Omit<Trader, "id">[]) => void; // массовая замена (импорт)
+  addTrader: (t: Omit<Trader, "id">) => void;
+  updateTrader: (id: number, data: Partial<Omit<Trader, "id">>) => void;
+  deleteTrader: (id: number) => void;
 
   // Promo codes (управляются в админке, применяются на оплате)
   promos: Promo[];
@@ -320,6 +335,17 @@ export const useStore = create<Store>()(
       // ── Hero avatars ───────────────────────────────────────────────────────
       heroAvatars: [],
       setHeroAvatars: (imgs) => set({ heroAvatars: imgs }),
+
+      // ── Top traders ────────────────────────────────────────────────────────
+      topTraders: [],
+      setTopTraders: (list) =>
+        set({ topTraders: list.map((t, i) => ({ ...t, id: Date.now() + i })) }),
+      addTrader: (t) =>
+        set((s) => ({ topTraders: [...s.topTraders, { ...t, id: Date.now() }] })),
+      updateTrader: (id, data) =>
+        set((s) => ({ topTraders: s.topTraders.map((t) => t.id === id ? { ...t, ...data } : t) })),
+      deleteTrader: (id) =>
+        set((s) => ({ topTraders: s.topTraders.filter((t) => t.id !== id) })),
 
       // ── Promo codes ────────────────────────────────────────────────────────
       promos: [],

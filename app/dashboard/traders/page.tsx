@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "../../components/i18n";
+import { useStore } from "../../../store/useStore";
 
 function useCountdown() {
   const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
@@ -26,7 +27,8 @@ function useCountdown() {
   return timeLeft;
 }
 
-const TRADERS = [
+// Резервный список, пока админ не импортировал реальных трейдеров
+const MOCK_TRADERS = [
   { rank: 1,  name: "AlphaTrader_KZ", country: "🇰🇿", volume: "$4,820,000", days: 180 },
   { rank: 2,  name: "BullRunner99",   country: "🇷🇺", volume: "$3,650,000", days: 142 },
   { rank: 3,  name: "SilentProfit",   country: "🇩🇪", volume: "$2,910,000", days: 210 },
@@ -63,6 +65,13 @@ export default function TradersPage() {
   const { h, m, s } = useCountdown();
   const pad = (n: number) => String(n).padStart(2, "0");
   const [showAll, setShowAll] = useState(false);
+
+  // Реальные трейдеры из админки; если пусто — резервный список
+  const stored = useStore(s => s.topTraders);
+  const TRADERS = stored.length > 0
+    ? stored.map((tr, i) => ({ rank: i + 1, name: tr.name, country: tr.country, volume: tr.volume, days: tr.days }))
+    : MOCK_TRADERS;
+
   const visible = showAll ? TRADERS : TRADERS.slice(0, PAGE_SIZE);
   return (
     <div className="px-4 md:px-8 py-8 max-w-4xl mx-auto">

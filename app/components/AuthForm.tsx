@@ -39,7 +39,8 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       }
       localStorage.setItem("rbhood-token", data.token);
       localStorage.setItem("rbhood-user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      // в дашборд — только по подписке; иначе на страницу тарифов
+      router.push(data.user.plan && data.user.plan !== "FREE" ? "/dashboard" : "/subscribe");
     } catch {
       setError("Сервер недоступен. Попробуйте позже.");
     } finally {

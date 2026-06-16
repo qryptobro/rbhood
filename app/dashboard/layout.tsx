@@ -61,9 +61,19 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { history, deleteHistory } = useHistory();
   const router = useRouter();
 
-  // Гейт: без токена — на страницу входа
+  // Гейт: без токена — на вход; без подписки — на тарифы
   useEffect(() => {
-    if (!localStorage.getItem("rbhood-token")) router.replace("/login");
+    const token = localStorage.getItem("rbhood-token");
+    if (!token) { router.replace("/login"); return; }
+    const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    fetch(`${api}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async r => {
+        if (!r.ok) { router.replace("/login"); return; }
+        const me = await r.json();
+        localStorage.setItem("rbhood-user", JSON.stringify(me));
+        if (!me.plan || me.plan === "FREE") router.replace("/subscribe");
+      })
+      .catch(() => { /* офлайн — пускаем по токену */ });
   }, [router]);
 
   // Определяем мобильный вьюпорт и закрываем сайдбар по умолчанию

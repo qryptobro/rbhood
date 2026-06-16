@@ -31,7 +31,7 @@ export default function GoogleSignIn({ onError }: { onError?: (m: string) => voi
             if (!r.ok) { onError?.(data.error || "Ошибка Google-входа"); return; }
             localStorage.setItem("rbhood-token", data.token);
             localStorage.setItem("rbhood-user", JSON.stringify(data.user));
-            router.push("/dashboard");
+            router.push(data.user.plan && data.user.plan !== "FREE" ? "/dashboard" : "/subscribe");
           } catch {
             onError?.("Сервер недоступен");
           }

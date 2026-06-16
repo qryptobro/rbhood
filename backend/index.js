@@ -5,6 +5,8 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+// Вебхук apipay нуждается в СЫРОМ теле для проверки HMAC — до express.json
+app.use("/api/payments/webhook", express.raw({ type: "*/*" }));
 app.use(express.json({ limit: "12mb" })); // иконки/логотипы base64 крупные
 
 app.get("/health", (req, res) => {
@@ -13,8 +15,9 @@ app.get("/health", (req, res) => {
 
 // Auth/users routes require PostgreSQL — skip if no DATABASE_URL
 if (process.env.DATABASE_URL) {
-  app.use("/api/auth",  require("./routes/auth"));
-  app.use("/api/users", require("./routes/users"));
+  app.use("/api/auth",     require("./routes/auth"));
+  app.use("/api/users",    require("./routes/users"));
+  app.use("/api/payments", require("./routes/payments"));
 } else {
   console.warn("DATABASE_URL not set — auth/users routes disabled");
 }

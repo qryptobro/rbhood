@@ -7,8 +7,8 @@ import { useI18n } from "./i18n";
 export default function Pricing({ paywall = false }: { paywall?: boolean }) {
   const { t } = useI18n();
   const { ref, inView } = useReveal();
-  // На лендинге CTA ведёт на регистрацию; на paywall — к оформлению (пока контакт поддержки)
-  const ctaHref = paywall ? "mailto:support@rbhood.ai?subject=Подписка%20rbhood%20ai" : "/register";
+  // На лендинге CTA ведёт на регистрацию; на paywall — на страницу оплаты Kaspi
+  const hrefFor = (planKey: string) => (paywall ? `/pay?plan=${planKey}` : "/register");
 
   const plans = [
     {
@@ -20,6 +20,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
       features: [t["plan1_f1"], t["plan1_f2"], t["plan1_f3"], t["plan1_f4"], t["plan1_f5"]],
       btn: t["plan1_btn"],
       featured: true,
+      href: hrefFor("monthly"),
     },
     {
       name: t["plan2_name"],
@@ -30,6 +31,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
       features: [t["plan2_f1"], t["plan2_f2"], t["plan2_f3"], t["plan2_f4"], t["plan2_f5"]],
       btn: t["plan2_btn"],
       featured: false,
+      href: hrefFor("lifetime"),
     },
   ];
 
@@ -92,7 +94,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
               </div>
 
               {/* CTA */}
-              <a href={ctaHref} className="block text-center w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
+              <a href={plan.href} className="block text-center w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
                 style={plan.featured ? {
                   background: "linear-gradient(90deg,#02B365,#19BB74)",
                   boxShadow: "0 4px 20px rgba(2,179,101,0.3)",

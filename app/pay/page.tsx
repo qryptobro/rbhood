@@ -24,6 +24,35 @@ function Checkout() {
   const [loading, setLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Промокод
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promo, setPromo] = useState<{ code: string; amount: number; discount: number } | null>(null);
+
+  const total = promo ? promo.amount : plan.amount;
+
+  const applyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoError(""); setPromoBusy(true);
+    try {
+      const token = localStorage.getItem("rbhood-token");
+      const r = await fetch(`${API}/api/payments/promo?code=${encodeURIComponent(promoCode.trim())}&plan=${plan.key}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (!r.ok || !d.valid) { setPromo(null); setPromoError(d.error || "Промокод не найден"); return; }
+      setPromo({ code: d.code, amount: d.amount, discount: d.discount });
+    } catch {
+      setPromoError("Не удалось проверить промокод");
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
+  const clearPromo = () => { setPromo(null); setPromoCode(""); setPromoError(""); setPromoOpen(false); };
+
   // Только для залогиненных
   useEffect(() => {
     const token = localStorage.getItem("rbhood-token");
@@ -71,7 +100,7 @@ function Checkout() {
       const r = await fetch(`${API}/api/payments/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ plan: plan.key, phone }),
+        body: JSON.stringify({ plan: plan.key, phone, promo: promo?.code }),
       });
       const d = await r.json();
       if (!r.ok) { setError(d.error || "Не удалось создать счёт"); return; }
@@ -144,10 +173,34 @@ function Checkout() {
               </div>
             </div>
 
-            {/* Promo (декоративно, как на образце) */}
-            <button type="button" className="w-full text-left rounded-xl border border-[#1a1a1a] bg-[#111] px-4 h-11 font-exo text-sm text-[#888] hover:text-white hover:border-[#262626] transition-colors mb-6">
-              + Промокод
-            </button>
+            {/* Promo */}
+            {!promoOpen && !promo ? (
+              <button type="button" onClick={() => setPromoOpen(true)}
+                className="w-full text-left rounded-xl border border-[#1a1a1a] bg-[#111] px-4 h-11 font-exo text-sm text-[#888] hover:text-white hover:border-[#262626] transition-colors mb-6">
+                + Промокод
+              </button>
+            ) : promo ? (
+              <div className="flex items-center gap-2 rounded-xl px-4 h-11 mb-6" style={{ background: "#02B3650d", border: "1px solid #02B36530" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span className="font-mono text-sm text-[#02B365] font-bold tracking-wider">{promo.code}</span>
+                <span className="font-exo text-xs text-[#9ad5b8]">−{fmtKzt(promo.discount)}</span>
+                <button type="button" onClick={clearPromo} className="ml-auto text-[#666] hover:text-white transition-colors">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="flex gap-2">
+                  <input value={promoCode} onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }} placeholder="Промокод"
+                    className="flex-1 h-11 px-3.5 rounded-xl border border-[#1e1e1e] bg-[#111] text-white text-sm font-mono tracking-wider outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] placeholder:font-exo placeholder:tracking-normal" />
+                  <button type="button" onClick={applyPromo} disabled={promoBusy || !promoCode.trim()}
+                    className="px-5 h-11 rounded-xl font-exo font-semibold text-sm text-white border border-[#02B36540] hover:bg-[#02B36510] transition-all disabled:opacity-40" style={{ background: "#0a2a1a" }}>
+                    {promoBusy ? "…" : "Применить"}
+                  </button>
+                </div>
+                {promoError && <div className="font-exo text-xs text-[#EF4444] mt-1.5">{promoError}</div>}
+              </div>
+            )}
 
             {/* Summary */}
             <div className="border-t border-[#1a1a1a] pt-5 mb-6">
@@ -155,9 +208,15 @@ function Checkout() {
                 <span className="font-exo text-sm text-[#888]">{plan.name} · {plan.period}</span>
                 <span className="font-exo text-sm text-white">{fmtKzt(plan.amount)}</span>
               </div>
+              {promo && (
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="font-exo text-sm text-[#9ad5b8]">Скидка ({promo.code})</span>
+                  <span className="font-exo text-sm text-[#02B365]">−{fmtKzt(promo.discount)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="font-exo font-semibold text-white">К оплате сегодня</span>
-                <span className="font-orbitron font-bold text-white text-lg">{fmtKzt(plan.amount)}</span>
+                <span className="font-orbitron font-bold text-white text-lg">{fmtKzt(total)}</span>
               </div>
             </div>
 
@@ -168,7 +227,7 @@ function Checkout() {
             <button type="submit" disabled={loading || stage === "waiting"}
               className="w-full h-12 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:hover:translate-y-0"
               style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 20px rgba(2,179,101,0.3)" }}>
-              {stage === "waiting" ? "Ожидаем подтверждение…" : loading ? "…" : `Оплатить ${fmtKzt(plan.amount)}`}
+              {stage === "waiting" ? "Ожидаем подтверждение…" : loading ? "…" : `Оплатить ${fmtKzt(total)}`}
             </button>
 
             <p className="text-center font-exo text-[11px] text-[#555] mt-4">

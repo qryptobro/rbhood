@@ -90,6 +90,14 @@ export interface Review {
   active: boolean;
 }
 
+export interface Promo {
+  id: number;
+  code: string;                    // промокод, напр. WELCOME20
+  type: "percent" | "fixed";       // скидка в % или фикс. сумма (тенге)
+  value: number;                   // 20 (%) или 5000 (₸)
+  active: boolean;
+}
+
 export interface Lesson {
   id: number;
   title: string;
@@ -148,6 +156,13 @@ interface Store {
   updateReview: (id: number, data: Partial<Omit<Review, "id">>) => void;
   deleteReview: (id: number) => void;
   toggleReview: (id: number) => void;
+
+  // Promo codes (управляются в админке, применяются на оплате)
+  promos: Promo[];
+  addPromo: (promo: Omit<Promo, "id">) => void;
+  updatePromo: (id: number, data: Partial<Omit<Promo, "id">>) => void;
+  deletePromo: (id: number) => void;
+  togglePromo: (id: number) => void;
 
   // Courses
   courses: Course[];
@@ -297,6 +312,17 @@ export const useStore = create<Store>()(
         set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
       toggleReview: (id) =>
         set((s) => ({ reviews: s.reviews.map((r) => r.id === id ? { ...r, active: !r.active } : r) })),
+
+      // ── Promo codes ────────────────────────────────────────────────────────
+      promos: [],
+      addPromo: (promo) =>
+        set((s) => ({ promos: [...s.promos, { ...promo, id: Date.now(), code: promo.code.trim().toUpperCase() }] })),
+      updatePromo: (id, data) =>
+        set((s) => ({ promos: s.promos.map((p) => p.id === id ? { ...p, ...data, code: (data.code ?? p.code).trim().toUpperCase() } : p) })),
+      deletePromo: (id) =>
+        set((s) => ({ promos: s.promos.filter((p) => p.id !== id) })),
+      togglePromo: (id) =>
+        set((s) => ({ promos: s.promos.map((p) => p.id === id ? { ...p, active: !p.active } : p) })),
 
       // ── Courses ────────────────────────────────────────────────────────────
       courses: [

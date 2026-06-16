@@ -1,7 +1,37 @@
 const router = require("express").Router();
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const auth = require("../middleware/auth");
 const prisma = require("../lib/prisma");
+
+// Промокоды лежат в админ-сторе (backend/data/store.json)
+const STORE_FILE = path.join(__dirname, "..", "data", "store.json");
+
+const readPromos = () => {
+  try {
+    const raw = fs.readFileSync(STORE_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    const promos = parsed?.state?.promos;
+    return Array.isArray(promos) ? promos : [];
+  } catch { return []; }
+};
+
+// Найти активный промокод по коду (без учёта регистра)
+const findPromo = (code) => {
+  const c = String(code || "").trim().toUpperCase();
+  if (!c) return null;
+  return readPromos().find((p) => p.active && String(p.code).toUpperCase() === c) || null;
+};
+
+// Применить скидку к сумме (тенге, целое)
+const applyDiscount = (amount, promo) => {
+  if (!promo) return amount;
+  let result = promo.type === "percent"
+    ? Math.round(amount * (1 - Number(promo.value) / 100))
+    : amount - Number(promo.value);
+  return Math.max(0, Math.round(result));
+};
 
 // apipay.kz (Kaspi) — настройки берём из окружения
 const API_BASE = process.env.APIPAY_BASE_URL || "https://bpapi.bazarbay.site/api/v1";
@@ -46,6 +76,27 @@ const grantPlan = async (userId, plan) => {
   await prisma.user.update({ where: { id: userId }, data: { plan } });
 };
 
+// GET /api/payments/promo?code=WELCOME20&plan=MONTHLY — проверить промокод
+router.get("/promo", auth, (req, res) => {
+  const plan = normalizePlan(req.query.plan);
+  if (!plan) return res.status(400).json({ error: "Некорректный тариф" });
+
+  const promo = findPromo(req.query.code);
+  if (!promo) return res.status(404).json({ valid: false, error: "Промокод не найден" });
+
+  const original = PLAN_PRICES[plan];
+  const amount = applyDiscount(original, promo);
+  res.json({
+    valid: true,
+    code: String(promo.code).toUpperCase(),
+    type: promo.type,
+    value: promo.value,
+    original,
+    amount,
+    discount: original - amount,
+  });
+});
+
 // POST /api/payments/create — создать счёт Kaspi по номеру телефона
 router.post("/create", auth, async (req, res) => {
   if (!API_KEY) return res.status(503).json({ error: "Оплата не настроена" });
@@ -56,7 +107,10 @@ router.post("/create", auth, async (req, res) => {
   const phone = normalizePhone(req.body.phone);
   if (!phone) return res.status(400).json({ error: "Введите корректный номер Kaspi" });
 
-  const amount = PLAN_PRICES[plan];
+  // Применяем промокод, если передан и валиден
+  const promo = req.body.promo ? findPromo(req.body.promo) : null;
+  const amount = applyDiscount(PLAN_PRICES[plan], promo);
+  if (amount < 1) return res.status(400).json({ error: "Сумма к оплате слишком мала" });
   // external_order_id кодирует пользователя и тариф — пригодится в вебхуке
   const external_order_id = `rbhood_u${req.user.id}_${plan}_${Date.now()}`;
 

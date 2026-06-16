@@ -13,6 +13,26 @@ function UserMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Реальные данные пользователя
+  const [user, setUser] = useState<{ name?: string; email?: string; avatar?: string }>({});
+  useEffect(() => {
+    const read = () => { try { setUser(JSON.parse(localStorage.getItem("rbhood-user") || "{}")); } catch { /* ignore */ } };
+    read();
+    window.addEventListener("rbhood-user-updated", read);
+    return () => window.removeEventListener("rbhood-user-updated", read);
+  }, []);
+
+  const name = user.name || (user.email ? user.email.split("@")[0] : "Пользователь");
+  const email = user.email || "";
+  const initials = (user.name || user.email || "?").trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  const Avatar = ({ size }: { size: number }) => (
+    user.avatar
+      ? <div className="rounded-full flex-shrink-0 overflow-hidden border border-[#2a2a2a]" style={{ width: size, height: size }}>
+          <img src={user.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        </div>
+      : <div className="rounded-full flex-shrink-0 flex items-center justify-center font-exo font-bold text-white" style={{ width: size, height: size, background: "#02B365", fontSize: size * 0.42 }}>{initials}</div>
+  );
+
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", h);
@@ -39,12 +59,10 @@ function UserMenu() {
             style={{ background: "#111", boxShadow: "0 -8px 32px rgba(0,0,0,0.6)" }}
           >
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a]">
-              <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden border border-[#2a2a2a]">
-                <img src="https://i.pravatar.cc/36?img=12" alt="" className="w-full h-full object-cover" />
-              </div>
+              <Avatar size={36} />
               <div className="min-w-0">
-                <div className="font-exo text-sm font-bold text-white truncate">IAMD OFFICIAL</div>
-                <div className="font-mono text-[10px] text-[#444] truncate">daukenzhebaev697@gmail.com</div>
+                <div className="font-exo text-sm font-bold text-white truncate">{name}</div>
+                <div className="font-mono text-[10px] text-[#444] truncate">{email}</div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#1a1a1a]">
@@ -76,12 +94,10 @@ function UserMenu() {
       </AnimatePresence>
       <button onClick={() => setOpen(v => !v)}
         className="w-full px-3 py-3 flex items-center gap-2.5 hover:bg-[#161616] transition-colors">
-        <div className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden border border-[#2a2a2a]">
-          <img src="https://i.pravatar.cc/28?img=12" alt="" className="w-full h-full object-cover" />
-        </div>
+        <Avatar size={28} />
         <div className="min-w-0 flex-1 text-left">
-          <div className="font-exo text-[11px] font-bold text-white truncate">IAMD OFFICIAL</div>
-          <div className="font-mono text-[9px] text-[#333] truncate">daukenzhebaev697@gmail.com</div>
+          <div className="font-exo text-[11px] font-bold text-white truncate">{name}</div>
+          <div className="font-mono text-[9px] text-[#333] truncate">{email}</div>
         </div>
         <motion.svg animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}
           width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">

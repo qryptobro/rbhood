@@ -13,6 +13,7 @@ model User {
   name      String
   password  String?  // null у пользователей, вошедших через Google
   googleId  String?  @unique
+  avatar    String?  // URL (Google) или base64-картинка (загруженная)
   plan      Plan     @default(FREE)
   role      Role     @default(USER)
   active    Boolean  @default(true)

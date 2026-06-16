@@ -55,14 +55,25 @@ function LangDropdown() {
   );
 }
 
-// Аватар реального пользователя — инициалы из имени/email, стабильный цвет по строке
+// Аватар реального пользователя — фото (Google/загруженное) или инициалы
 function UserAvatar() {
-  const [u, setU] = useState<{ name?: string; email?: string }>({});
+  const [u, setU] = useState<{ name?: string; email?: string; avatar?: string }>({});
   useEffect(() => {
-    try { setU(JSON.parse(localStorage.getItem("rbhood-user") || "{}")); } catch { /* ignore */ }
+    const read = () => { try { setU(JSON.parse(localStorage.getItem("rbhood-user") || "{}")); } catch { /* ignore */ } };
+    read();
+    window.addEventListener("rbhood-user-updated", read);
+    return () => window.removeEventListener("rbhood-user-updated", read);
   }, []);
 
   const label = (u.name || u.email || "").trim();
+
+  if (u.avatar) {
+    return (
+      <div className="w-7 h-7 rounded-full overflow-hidden border border-[#2a2a2a]" title={label}>
+        <img src={u.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+      </div>
+    );
+  }
   const initials = label
     ? label.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()
     : "?";

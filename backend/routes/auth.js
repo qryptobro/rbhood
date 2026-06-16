@@ -9,7 +9,7 @@ const sign = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, plan: u.plan, role: u.role });
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, plan: u.plan, role: u.role, avatar: u.avatar });
 
 // POST /api/auth/register
 router.post("/register", [
@@ -29,7 +29,7 @@ router.post("/register", [
     const user = await prisma.user.create({ data: { email, name, password: hash } });
 
     const token = sign(user.id);
-    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, role: user.role } });
+    res.status(201).json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(500).json({ error: "Server error" });
   }
@@ -55,7 +55,7 @@ router.post("/login", [
     if (!user.active) return res.status(403).json({ error: "Account disabled" });
 
     const token = sign(user.id);
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, plan: user.plan, role: user.role } });
+    res.json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(500).json({ error: "Server error" });
   }
@@ -76,12 +76,17 @@ router.post("/google", async (req, res) => {
     const email = p.email;
     const name = p.name || email.split("@")[0];
     const googleId = p.sub;
+    const picture = p.picture || null;
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      user = await prisma.user.create({ data: { email, name, googleId } });
-    } else if (!user.googleId) {
-      user = await prisma.user.update({ where: { id: user.id }, data: { googleId } });
+      user = await prisma.user.create({ data: { email, name, googleId, avatar: picture } });
+    } else if (!user.googleId || (picture && !user.avatar)) {
+      // привязываем googleId и подставляем фото, если у пользователя ещё нет аватара
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { googleId: user.googleId || googleId, ...(picture && !user.avatar ? { avatar: picture } : {}) },
+      });
     }
     if (!user.active) return res.status(403).json({ error: "Account disabled" });
 
@@ -94,8 +99,23 @@ router.post("/google", async (req, res) => {
 
 // GET /api/auth/me
 router.get("/me", require("../middleware/auth"), (req, res) => {
-  const { id, email, name, plan, role, createdAt } = req.user;
-  res.json({ id, email, name, plan, role, createdAt });
+  const { id, email, name, plan, role, avatar, createdAt } = req.user;
+  res.json({ id, email, name, plan, role, avatar, createdAt });
+});
+
+// PATCH /api/auth/me — обновить имя и/или аватар (для текущего пользователя)
+router.patch("/me", require("../middleware/auth"), async (req, res) => {
+  const { name, avatar } = req.body;
+  const data = {};
+  if (typeof name === "string" && name.trim()) data.name = name.trim();
+  if (typeof avatar === "string") data.avatar = avatar || null; // пустая строка = убрать аватар
+  if (Object.keys(data).length === 0) return res.status(400).json({ error: "Нечего обновлять" });
+  try {
+    const user = await prisma.user.update({ where: { id: req.user.id }, data });
+    res.json(publicUser(user));
+  } catch (e) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // POST /api/auth/logout

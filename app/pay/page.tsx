@@ -18,21 +18,16 @@ function Checkout() {
   const planParam = (params.get("plan") || "monthly").toLowerCase();
   const plan = PLANS[planParam] || PLANS.monthly;
 
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [stage, setStage] = useState<"form" | "waiting" | "paid">("form");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Только для залогиненных; подставляем email
+  // Только для залогиненных
   useEffect(() => {
     const token = localStorage.getItem("rbhood-token");
     if (!token) { router.replace("/login"); return; }
-    try {
-      const u = JSON.parse(localStorage.getItem("rbhood-user") || "{}");
-      if (u.email) setEmail(u.email);
-    } catch { /* ignore */ }
   }, [router]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -116,26 +111,30 @@ function Checkout() {
             </div>
           ) : (
           <form onSubmit={pay}>
-            {/* Email */}
-            <label className="font-exo font-semibold text-sm text-white block mb-1.5">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
-              className="w-full h-12 px-3.5 rounded-xl border border-[#1e1e1e] bg-[#111] text-white text-sm font-exo outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] mb-6" />
-
             {/* Payment method */}
             <div className="font-exo font-semibold text-sm text-white mb-2.5">Способ оплаты</div>
-            <div className="rounded-xl border border-[#02B36540] overflow-hidden mb-6" style={{ background: "#0a1410" }}>
+            <div className="rounded-xl border border-[#02B36540] overflow-hidden mb-4" style={{ background: "#0a1410" }}>
               <div className="flex items-center gap-3 px-4 h-14 border-b border-[#15241c]">
-                <span className="w-4 h-4 rounded-full border-2 border-[#02B365] flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full border-2 border-[#02B365] flex items-center justify-center flex-shrink-0">
                   <span className="w-2 h-2 rounded-full bg-[#02B365]" />
                 </span>
-                <span className="font-mono font-bold text-[#FF3B30] text-base" style={{ letterSpacing: "-0.5px" }}>Kaspi</span>
-                <span className="font-exo text-sm text-[#999]">Перевод через приложение Kaspi.kz</span>
+                <img src="/kaspi.svg" alt="Kaspi.kz" className="h-5 w-auto" />
+                <span className="font-exo text-sm text-[#999]">Оплата через приложение Kaspi.kz</span>
               </div>
               <div className="p-4">
-                <label className="font-exo text-xs text-[#888] block mb-1.5">Номер телефона Kaspi</label>
+                <label className="font-exo text-xs text-[#888] block mb-1.5">Введите свой номер для удалённой оплаты</label>
                 <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (___) ___-__-__" inputMode="tel"
                   disabled={stage === "waiting"}
                   className="w-full h-12 px-3.5 rounded-lg border border-[#1e1e1e] bg-[#0d0d0d] text-white text-sm font-exo outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] disabled:opacity-60" />
+
+                {/* Доступные виды оплаты Kaspi — выбираются в приложении */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {["Оплата", "Рассрочка 0%", "Kaspi Red"].map((m) => (
+                    <span key={m} className="font-exo text-[11px] text-[#9ad5b8] px-2.5 py-1 rounded-full" style={{ background: "#02B3650d", border: "1px solid #02B36530" }}>{m}</span>
+                  ))}
+                </div>
+                <p className="font-exo text-[11px] text-[#666] mt-2">Способ (оплата, рассрочка или Kaspi Red) вы выбираете в приложении Kaspi после получения счёта.</p>
+
                 {stage === "waiting" && (
                   <div className="mt-3 flex items-start gap-2.5 rounded-lg px-3 py-2.5" style={{ background: "#02B3650d", border: "1px solid #02B36525" }}>
                     <svg className="animate-spin flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>

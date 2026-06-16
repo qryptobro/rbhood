@@ -5,6 +5,12 @@ const SLOTS = [
   { ini: "АБ", bg: "#0f5132" },
   { ini: "НС", bg: "#157347" },
   { ini: "ДҚ", bg: "#02B365" },
+  { ini: "ЕТ", bg: "#1a6b48" },
+  { ini: "МК", bg: "#0d6e54" },
+  { ini: "АС", bg: "#117a4d" },
+  { ini: "ДА", bg: "#0f5132" },
+  { ini: "БС", bg: "#157347" },
+  { ini: "ТМ", bg: "#02B365" },
 ];
 
 export default function HeroAdminPage() {
@@ -43,24 +49,28 @@ export default function HeroAdminPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="font-orbitron font-bold text-xl text-white tracking-wide">Главный экран</h1>
-        <p className="font-exo text-sm text-[#444] mt-0.5">Аватары в бейдже «+1300 трейдеров» на лендинге</p>
+        <p className="font-exo text-sm text-[#444] mt-0.5">Загрузите до 9 аватаров — на лендинге каждый раз показываются 3 случайных</p>
       </div>
 
-      {/* Превью бейджа */}
-      <div className="rounded-2xl border border-[#1a1a1a] p-6 flex justify-center" style={{ background: "#0d0d0d" }}>
+      {/* Превью бейджа — показываем первые 3 загруженных (на сайте они случайные) */}
+      <div className="rounded-2xl border border-[#1a1a1a] p-6 flex flex-col items-center gap-2" style={{ background: "#0d0d0d" }}>
         <div className="inline-flex items-center gap-3 rounded-full border border-[#2a2a2a] px-4 py-2" style={{ background: "#111" }}>
           <span className="font-mono text-[#444] text-base">[</span>
           <div className="flex -space-x-2">
-            {SLOTS.map((s, i) => (
-              <div key={i} className="w-7 h-7 rounded-full border-2 border-[#111] overflow-hidden flex items-center justify-center font-exo text-[9px] font-bold text-white"
-                style={{ background: s.bg, zIndex: 3 - i }}>
-                {heroAvatars[i] ? <img src={heroAvatars[i]} alt="" className="w-full h-full object-cover" /> : s.ini}
-              </div>
-            ))}
+            {(() => {
+              const uploaded = heroAvatars.filter(Boolean).slice(0, 3);
+              return [0, 1, 2].map(i => (
+                <div key={i} className="w-7 h-7 rounded-full border-2 border-[#111] overflow-hidden flex items-center justify-center font-exo text-[9px] font-bold text-white"
+                  style={{ background: SLOTS[i].bg, zIndex: 3 - i }}>
+                  {uploaded[i] ? <img src={uploaded[i]} alt="" className="w-full h-full object-cover" /> : SLOTS[i].ini}
+                </div>
+              ));
+            })()}
           </div>
           <span className="font-mono text-xs font-bold text-white uppercase tracking-widest">+1300 прибыльных трейдеров</span>
           <span className="font-mono text-[#444] text-base">]</span>
         </div>
+        <span className="font-mono text-[10px] text-[#444]">Загружено: {heroAvatars.filter(Boolean).length} / 9</span>
       </div>
 
       {/* Слоты загрузки */}

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "./i18n";
 import { useStore } from "../../store/useStore";
@@ -25,7 +25,16 @@ export default function Hero() {
     { ini: "НС", bg: "#157347" },
     { ini: "ДҚ", bg: "#02B365" },
   ];
-  const badgeAvatars = defaults.map((d, i) => ({ ...d, src: heroAvatars[i] || "" }));
+
+  // Случайно выбираем 3 аватара из загруженных при каждой загрузке страницы
+  const [picks, setPicks] = useState<string[]>([]);
+  useEffect(() => {
+    const imgs = heroAvatars.filter(Boolean);
+    const shuffled = [...imgs].sort(() => Math.random() - 0.5);
+    setPicks(shuffled.slice(0, 3));
+  }, [heroAvatars]);
+
+  const badgeAvatars = defaults.map((d, i) => ({ ...d, src: picks[i] || "" }));
 
   return (
     <section className="relative flex flex-col items-center justify-center text-center px-6 pt-32 pb-24 overflow-hidden"

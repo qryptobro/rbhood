@@ -87,7 +87,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
 
               {/* Price */}
               <div className="flex items-baseline gap-1.5 mb-6">
-                <span className="font-orbitron font-bold text-white" style={{ fontSize: 44, letterSpacing: "-2px" }}>
+                <span className="font-orbitron font-bold text-white" style={{ fontSize: 44, letterSpacing: "-2px", whiteSpace: "nowrap" }}>
                   {plan.price}
                 </span>
                 <span className="font-exo text-sm text-[#444]">{plan.period}</span>

@@ -1,5 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+interface DbUser { id: number; name: string; email: string; plan: string; active: boolean; createdAt: string }
+const PLAN_C: Record<string, string> = { FREE: "#4A90D9", MONTHLY: "#02B365", LIFETIME: "#F59E0B" };
 
 const STATS = [
   { label: "Пользователи",     value: "0",  delta: "",  up: true,  icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
@@ -7,15 +11,6 @@ const STATS = [
   { label: "Выручка (мес.)",   value: "$0", delta: "",  up: true,  icon: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
   { label: "Новых сегодня",    value: "0",  delta: "",  up: true,  icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
 ];
-
-const RECENT_USERS: { name: string; email: string; plan: string; status: string; date: string }[] = [];
-
-const PLAN_COLORS: Record<string, string> = { Pro: "#02B365", Elite: "#F59E0B", Starter: "#4A90D9" };
-const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
-  active:  { color: "#02B365", bg: "#02B36515", label: "Активен"  },
-  trial:   { color: "#F59E0B", bg: "#F59E0B15", label: "Пробный"  },
-  expired: { color: "#EF4444", bg: "#EF444415", label: "Истёк"    },
-};
 
 const ALL_MONTHS = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
 const ALL_VALUES = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -25,6 +20,24 @@ export default function AdminDashboard() {
   const count = period === "3м" ? 3 : period === "6м" ? 6 : 12;
   const months = ALL_MONTHS.slice(-count);
   const values = ALL_VALUES.slice(-count);
+
+  const [users, setUsers] = useState<DbUser[]>([]);
+  useEffect(() => {
+    const token = localStorage.getItem("rbhood-token");
+    fetch(`${API}/api/users`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => r.ok ? r.json() : [])
+      .then(setUsers)
+      .catch(() => {});
+  }, []);
+
+  const today = new Date().toDateString();
+  const stats = [
+    { ...STATS[0], value: String(users.length) },
+    { ...STATS[1], value: String(users.filter(u => u.plan !== "FREE").length) },
+    { ...STATS[2], value: STATS[2].value },
+    { ...STATS[3], value: String(users.filter(u => new Date(u.createdAt).toDateString() === today).length) },
+  ];
+  const recent = users.slice(0, 5);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -36,7 +49,7 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {STATS.map(s => (
+        {stats.map(s => (
           <div key={s.label} className="rounded-2xl border border-[#1a1a1a] p-4" style={{ background: "#111" }}>
             <div className="flex items-start justify-between mb-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#161616" }}>
@@ -92,28 +105,26 @@ export default function AdminDashboard() {
           <a href="/admin/users" className="font-mono text-[10px] text-[#02B365] hover:underline">Все →</a>
         </div>
         <div className="divide-y divide-[#141414]">
-          {RECENT_USERS.map(u => {
-            const st = STATUS_STYLE[u.status];
-            return (
-              <div key={u.email} className="flex items-center gap-4 px-5 py-3 hover:bg-[#141414] transition-colors">
-                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-exo font-bold text-xs text-white"
-                  style={{ background: "#1a1a1a", border: "1px solid #222" }}>
-                  {u.name[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-exo text-sm font-semibold text-white truncate">{u.name}</div>
-                  <div className="font-mono text-[10px] text-[#444] truncate">{u.email}</div>
-                </div>
-                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0"
-                  style={{ color: PLAN_COLORS[u.plan] ?? "#666", background: (PLAN_COLORS[u.plan] ?? "#666") + "15" }}>
-                  {u.plan}
-                </span>
-                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0"
-                  style={{ color: st.color, background: st.bg }}>{st.label}</span>
-                <span className="font-mono text-[10px] text-[#333] flex-shrink-0 hidden lg:block">{u.date}</span>
+          {recent.map(u => (
+            <div key={u.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[#141414] transition-colors">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-exo font-bold text-xs text-white"
+                style={{ background: "#1a1a1a", border: "1px solid #222" }}>
+                {(u.name || "?")[0].toUpperCase()}
               </div>
-            );
-          })}
+              <div className="flex-1 min-w-0">
+                <div className="font-exo text-sm font-semibold text-white truncate">{u.name}</div>
+                <div className="font-mono text-[10px] text-[#444] truncate">{u.email}</div>
+              </div>
+              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md flex-shrink-0"
+                style={{ color: PLAN_C[u.plan] ?? "#666", background: (PLAN_C[u.plan] ?? "#666") + "15" }}>
+                {u.plan}
+              </span>
+              <span className="font-mono text-[10px] text-[#333] flex-shrink-0 hidden lg:block">{new Date(u.createdAt).toLocaleDateString("ru-RU")}</span>
+            </div>
+          ))}
+          {recent.length === 0 && (
+            <div className="px-5 py-8 text-center font-exo text-sm text-[#444]">Пользователей пока нет</div>
+          )}
         </div>
       </div>
     </div>

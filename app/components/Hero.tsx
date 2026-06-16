@@ -1,6 +1,20 @@
 "use client";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "./i18n";
+
+// Аватар: реальное фото из /public/avatars; если файла нет — инициалы
+function BadgeAvatar({ src, ini, bg, z }: { src: string; ini: string; bg: string; z: number }) {
+  const [ok, setOk] = useState(true);
+  return (
+    <div className="w-7 h-7 rounded-full border-2 border-[#111] overflow-hidden flex items-center justify-center font-exo text-[9px] font-bold text-white"
+      style={{ background: bg, zIndex: z }}>
+      {ok
+        ? <img src={src} alt="" className="w-full h-full object-cover" onError={() => setOk(false)} />
+        : ini}
+    </div>
+  );
+}
 
 export default function Hero() {
   const { t } = useI18n();
@@ -31,10 +45,12 @@ export default function Hero() {
         >
           <span className="font-mono-custom text-[#444] text-base">[</span>
           <div className="flex -space-x-2">
-            {[10, 20, 30].map((seed, i) => (
-              <img key={i} src={`https://i.pravatar.cc/36?img=${seed}`} alt=""
-                className="w-7 h-7 rounded-full border-2 border-[#111] object-cover"
-                style={{ zIndex: 3 - i }} />
+            {[
+              { src: "/avatars/1.jpg", ini: "АБ", bg: "#0f5132" },
+              { src: "/avatars/2.jpg", ini: "НС", bg: "#157347" },
+              { src: "/avatars/3.jpg", ini: "ДҚ", bg: "#02B365" },
+            ].map((a, i) => (
+              <BadgeAvatar key={i} src={a.src} ini={a.ini} bg={a.bg} z={3 - i} />
             ))}
           </div>
           <span className="font-mono-custom text-xs font-bold text-white uppercase tracking-widest">

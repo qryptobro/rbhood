@@ -18,7 +18,15 @@ function Checkout() {
   const planParam = (params.get("plan") || "monthly").toLowerCase();
   const plan = PLANS[planParam] || PLANS.monthly;
 
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+7");
+
+  // Всегда держим префикс +7; принимаем максимум 10 цифр после
+  const handlePhone = (raw: string) => {
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("8")) digits = digits.slice(1);
+    if (digits.startsWith("7")) digits = digits.slice(1);
+    setPhone("+7" + digits.slice(0, 10));
+  };
   const [stage, setStage] = useState<"form" | "waiting" | "paid">("form");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -93,7 +101,7 @@ function Checkout() {
 
   const pay = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone.trim()) { setError("Введите номер телефона Kaspi"); return; }
+    if (phone.replace(/\D/g, "").length < 11) { setError("Введите полный номер телефона Kaspi"); return; }
     setError(""); setLoading(true);
     try {
       const token = localStorage.getItem("rbhood-token");
@@ -152,7 +160,7 @@ function Checkout() {
               </div>
               <div className="p-4">
                 <label className="font-exo text-xs text-[#888] block mb-1.5">Введите свой номер для удалённой оплаты</label>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+7 (___) ___-__-__" inputMode="tel"
+                <input value={phone} onChange={e => handlePhone(e.target.value)} placeholder="+7 700 000 00 00" inputMode="tel"
                   disabled={stage === "waiting"}
                   className="w-full h-12 px-3.5 rounded-lg border border-[#1e1e1e] bg-[#0d0d0d] text-white text-sm font-exo outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] disabled:opacity-60" />
 

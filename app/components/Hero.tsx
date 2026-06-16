@@ -2,14 +2,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "./i18n";
+import { useStore } from "../../store/useStore";
 
-// Аватар: реальное фото из /public/avatars; если файла нет — инициалы
+// Аватар: загруженное фото из админки; если нет — инициалы
 function BadgeAvatar({ src, ini, bg, z }: { src: string; ini: string; bg: string; z: number }) {
   const [ok, setOk] = useState(true);
   return (
     <div className="w-7 h-7 rounded-full border-2 border-[#111] overflow-hidden flex items-center justify-center font-exo text-[9px] font-bold text-white"
       style={{ background: bg, zIndex: z }}>
-      {ok
+      {ok && src
         ? <img src={src} alt="" className="w-full h-full object-cover" onError={() => setOk(false)} />
         : ini}
     </div>
@@ -18,6 +19,13 @@ function BadgeAvatar({ src, ini, bg, z }: { src: string; ini: string; bg: string
 
 export default function Hero() {
   const { t } = useI18n();
+  const heroAvatars = useStore(s => s.heroAvatars);
+  const defaults = [
+    { ini: "АБ", bg: "#0f5132" },
+    { ini: "НС", bg: "#157347" },
+    { ini: "ДҚ", bg: "#02B365" },
+  ];
+  const badgeAvatars = defaults.map((d, i) => ({ ...d, src: heroAvatars[i] || "" }));
 
   return (
     <section className="relative flex flex-col items-center justify-center text-center px-6 pt-32 pb-24 overflow-hidden"
@@ -45,11 +53,7 @@ export default function Hero() {
         >
           <span className="font-mono-custom text-[#444] text-base">[</span>
           <div className="flex -space-x-2">
-            {[
-              { src: "/avatars/1.jpg", ini: "АБ", bg: "#0f5132" },
-              { src: "/avatars/2.jpg", ini: "НС", bg: "#157347" },
-              { src: "/avatars/3.jpg", ini: "ДҚ", bg: "#02B365" },
-            ].map((a, i) => (
+            {badgeAvatars.map((a, i) => (
               <BadgeAvatar key={i} src={a.src} ini={a.ini} bg={a.bg} z={3 - i} />
             ))}
           </div>

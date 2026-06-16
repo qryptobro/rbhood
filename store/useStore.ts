@@ -157,6 +157,10 @@ interface Store {
   deleteReview: (id: number) => void;
   toggleReview: (id: number) => void;
 
+  // Hero-аватары (бейдж "+1300 трейдеров" на лендинге) — до 3 шт, base64
+  heroAvatars: string[];
+  setHeroAvatars: (imgs: string[]) => void;
+
   // Promo codes (управляются в админке, применяются на оплате)
   promos: Promo[];
   addPromo: (promo: Omit<Promo, "id">) => void;
@@ -312,6 +316,10 @@ export const useStore = create<Store>()(
         set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
       toggleReview: (id) =>
         set((s) => ({ reviews: s.reviews.map((r) => r.id === id ? { ...r, active: !r.active } : r) })),
+
+      // ── Hero avatars ───────────────────────────────────────────────────────
+      heroAvatars: [],
+      setHeroAvatars: (imgs) => set({ heroAvatars: imgs }),
 
       // ── Promo codes ────────────────────────────────────────────────────────
       promos: [],

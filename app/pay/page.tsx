@@ -6,8 +6,8 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // Должно совпадать с PLAN_PRICES на бэкенде (тенге)
 const PLANS: Record<string, { key: "MONTHLY" | "LIFETIME"; name: string; amount: number; period: string }> = {
-  monthly: { key: "MONTHLY", name: "Monthly", amount: 20000, period: "в месяц" },
-  lifetime: { key: "LIFETIME", name: "Lifetime", amount: 90000, period: "единоразово" },
+  monthly: { key: "MONTHLY", name: "Monthly", amount: 19990, period: "в месяц" },
+  lifetime: { key: "LIFETIME", name: "Lifetime", amount: 89990, period: "единоразово" },
 };
 
 const fmtKzt = (n: number) => n.toLocaleString("ru-RU") + " ₸";

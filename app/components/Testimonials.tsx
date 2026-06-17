@@ -109,14 +109,20 @@ export default function Testimonials() {
           </div>
         </div>
 
-        {/* Мобайл: простой статичный список (без анимации и фикс. высоты) */}
-        <div className="md:hidden flex flex-col gap-4">
-          {useReal
-            ? active.map((r, i) => <ReviewCard key={i} r={r} />)
-            : testimonials.map((item, i) => (
-                <TextCard key={i} initials={item.initials} name={item.name}
-                  role={extraKeys[item.roleKey] ?? ""} text={extraKeys[item.textKey] ?? ""} />
-              ))}
+        {/* Мобайл: одна колонка с автопрокруткой (все отзывы) */}
+        <div className="md:hidden relative overflow-hidden" style={{ height: 560 }}>
+          <div className="absolute top-0 left-0 right-0 h-20 z-10 pointer-events-none"
+            style={{ background: "linear-gradient(to bottom, #F4F4F5, transparent)" }} />
+          <div className="absolute bottom-0 left-0 right-0 h-20 z-10 pointer-events-none"
+            style={{ background: "linear-gradient(to top, #F4F4F5, transparent)" }} />
+          <div className="flex flex-col" style={{ animation: "scrollUp 40s linear infinite" }}>
+            {useReal
+              ? [...active, ...active].map((r, i) => <ReviewCard key={i} r={r} />)
+              : [...testimonials, ...testimonials].map((item, i) => (
+                  <TextCard key={i} initials={item.initials} name={item.name}
+                    role={extraKeys[item.roleKey] ?? ""} text={extraKeys[item.textKey] ?? ""} />
+                ))}
+          </div>
         </div>
       </div>
 

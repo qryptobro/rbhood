@@ -109,21 +109,21 @@ export default function Testimonials() {
           </div>
         </div>
 
-        {/* Мобайл: одна колонка с автопрокруткой (все отзывы) */}
-        <div className="md:hidden relative overflow-hidden" style={{ height: 560 }}>
-          <div className="absolute top-0 left-0 right-0 h-20 z-10 pointer-events-none"
-            style={{ background: "linear-gradient(to bottom, #F4F4F5, transparent)" }} />
-          <div className="absolute bottom-0 left-0 right-0 h-20 z-10 pointer-events-none"
-            style={{ background: "linear-gradient(to top, #F4F4F5, transparent)" }} />
-          <div className="flex flex-col" style={{ animation: "scrollUp 40s linear infinite" }}>
-            {useReal
-              ? [...active, ...active].map((r, i) => <ReviewCard key={i} r={r} />)
-              : [...testimonials, ...testimonials].map((item, i) => (
-                  <TextCard key={i} initials={item.initials} name={item.name}
+        {/* Мобайл: горизонтальная листалка (свайп) */}
+        <div className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-2 px-2"
+          style={{ scrollbarWidth: "none" }}>
+          {useReal
+            ? active.map((r, i) => (
+                <div key={i} className="snap-center shrink-0 w-[82vw] max-w-[360px]"><ReviewCard r={r} /></div>
+              ))
+            : testimonials.map((item, i) => (
+                <div key={i} className="snap-center shrink-0 w-[82vw] max-w-[360px]">
+                  <TextCard initials={item.initials} name={item.name}
                     role={extraKeys[item.roleKey] ?? ""} text={extraKeys[item.textKey] ?? ""} />
-                ))}
-          </div>
+                </div>
+              ))}
         </div>
+        <p className="md:hidden text-center font-exo text-xs text-[#999] mt-2">← листайте отзывы →</p>
       </div>
 
       <style>{`

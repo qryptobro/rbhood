@@ -125,7 +125,7 @@ const translations = {
     td_bottom_title: "Готов стать частью топа?", td_bottom_pre: "Открой реальный счёт у партнёра", td_bottom_post: "и торгуй через rbhood ai — лучшие результаты автоматически попадают в рейтинг.", td_create_fxpro: "Создать счёт в FxPro",
     // Training
     trn_default: "Обучение", trn_module: "Модуль", trn_mark_done: "Отметить пройденным",
-    trn_mentor: "Наставник", trn_mentor_desc: "Свяжитесь с наставником в WhatsApp, чтобы получить помощь с первым анализом", trn_mentor_locked: "Пройдите все уроки чтобы разблокировать", trn_mentor_btn: "Написать наставнику",
+    trn_mentor: "Наставник", trn_mentor_desc: "Свяжитесь с наставником в Telegram, чтобы получить помощь с первым анализом", trn_mentor_locked: "Пройдите все уроки чтобы разблокировать", trn_mentor_btn: "Написать наставнику",
     trn_progress: "Прогресс", trn_done: "пройдено",
   },
   kz: {
@@ -248,7 +248,7 @@ const translations = {
     td_bottom_title: "Топтың бір бөлігі болуға дайынсың ба?", td_bottom_pre: "Серіктес FxPro-да нақты шот аш", td_bottom_post: "және rbhood ai арқылы сауда жаса — үздік нәтижелер рейтингке автоматты түрде кіреді.", td_create_fxpro: "FxPro-да шот ашу",
     // Training
     trn_default: "Оқыту", trn_module: "Модуль", trn_mark_done: "Өтілді деп белгілеу",
-    trn_mentor: "Тәлімгер", trn_mentor_desc: "Алғашқы талдауға көмек алу үшін тәлімгерге WhatsApp арқылы хабарласыңыз", trn_mentor_locked: "Ашу үшін барлық сабақтан өтіңіз", trn_mentor_btn: "Тәлімгерге жазу",
+    trn_mentor: "Тәлімгер", trn_mentor_desc: "Алғашқы талдауға көмек алу үшін тәлімгерге Telegram арқылы хабарласыңыз", trn_mentor_locked: "Ашу үшін барлық сабақтан өтіңіз", trn_mentor_btn: "Тәлімгерге жазу",
     trn_progress: "Прогресс", trn_done: "өтілді",
   },
   en: {
@@ -370,7 +370,7 @@ const translations = {
     td_bottom_title: "Ready to join the top?", td_bottom_pre: "Open a real account with partner", td_bottom_post: "and trade via rbhood ai — the best results automatically make the ranking.", td_create_fxpro: "Create FxPro account",
     // Training
     trn_default: "Training", trn_module: "Module", trn_mark_done: "Mark as completed",
-    trn_mentor: "Mentor", trn_mentor_desc: "Contact a mentor on WhatsApp to get help with your first analysis", trn_mentor_locked: "Complete all lessons to unlock", trn_mentor_btn: "Message mentor",
+    trn_mentor: "Mentor", trn_mentor_desc: "Contact a mentor on Telegram to get help with your first analysis", trn_mentor_locked: "Complete all lessons to unlock", trn_mentor_btn: "Message mentor",
     trn_progress: "Progress", trn_done: "completed",
   },
 } as const;

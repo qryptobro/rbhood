@@ -86,17 +86,16 @@ function MentorBlock({ completedCount, total }: { completedCount: number; total:
         <p className="font-exo text-xs text-[#444] mb-3">{t["trn_mentor_locked"]}</p>
       )}
       <a
-        href={unlocked ? "https://wa.me/" : undefined}
+        href={unlocked ? "https://t.me/nurtrade_fx" : undefined}
         target={unlocked ? "_blank" : undefined}
         rel="noopener noreferrer"
         onClick={e => { if (!unlocked) e.preventDefault(); }}
         className="inline-flex items-center gap-2 h-10 px-5 rounded-xl font-exo font-bold text-sm text-white transition-all"
         style={unlocked
-          ? { background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 2px 12px rgba(2,179,101,0.25)", cursor: "pointer" }
+          ? { background: "linear-gradient(90deg,#229ED9,#2AABEE)", boxShadow: "0 2px 12px rgba(42,171,238,0.25)", cursor: "pointer" }
           : { background: "#1a1a1a", color: "#444", cursor: "not-allowed" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.135.561 4.137 1.535 5.874L.057 23.886l6.198-1.453A11.944 11.944 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.651-.516-5.166-1.415l-.371-.22-3.679.862.924-3.574-.242-.381A9.956 9.956 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+          <path d="M21.94 4.6l-3.32 15.66c-.25 1.1-.9 1.38-1.83.86l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.14L17.4 6.9c.4-.36-.09-.56-.62-.2L6.46 13.42l-4.97-1.56c-1.08-.34-1.1-1.08.23-1.6L20.54 3c.9-.34 1.69.2 1.4 1.6z"/>
         </svg>
         {t["trn_mentor_btn"]}
       </a>

@@ -8,6 +8,21 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const serverStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    // Кэш-первый: если данные уже есть в localStorage — отдаём мгновенно
+    // (без ожидания сети), иначе на дашборде мелькают заглушки иконок.
+    let cached: string | null = null;
+    try { cached = localStorage.getItem(name); } catch { /* ignore */ }
+
+    if (cached) {
+      // фоновое обновление кэша с сервера — подхватится при следующем заходе
+      fetch(`${API}/api/state`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (d && typeof d.value === "string" && d.value !== cached) { try { localStorage.setItem(name, d.value); } catch { /* ignore */ } } })
+        .catch(() => { /* ignore */ });
+      return cached;
+    }
+
+    // Кэша нет (первый заход) — ждём сервер
     try {
       const res = await fetch(`${API}/api/state`);
       if (res.ok) {
@@ -17,8 +32,8 @@ const serverStorage = {
           return d.value;
         }
       }
-    } catch { /* сервер недоступен — берём из кэша */ }
-    try { return localStorage.getItem(name); } catch { return null; }
+    } catch { /* сервер недоступен */ }
+    return null;
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try { localStorage.setItem(name, value); } catch { /* ignore */ }

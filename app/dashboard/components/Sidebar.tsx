@@ -165,8 +165,8 @@ export default function Sidebar({ history, onDeleteHistory }: SidebarProps) {
     <aside className="w-[200px] flex-shrink-0 flex flex-col border-r border-[#181818] overflow-hidden h-full" style={{ background: "#111" }}>
       {/* Logo — клик ведёт на главную */}
       <a href="/" className="flex items-center gap-2 px-4 py-[14px] border-b border-[#181818] hover:bg-[#161616] transition-colors">
-        <div style={{ width: 30, height: 26, overflow: "hidden", flexShrink: 0, marginTop: "-4px" }}>
-          <img src="/logo.svg" alt="" width={30} height={45} style={{ display: "block" }} />
+        <div style={{ width: 28, height: 24, overflow: "hidden", flexShrink: 0, marginTop: "-3px" }}>
+          <img src="/logo.svg" alt="" width={28} height={42} style={{ display: "block" }} />
         </div>
         <span className="font-orbitron font-bold text-[14px] tracking-wider text-white lowercase leading-none whitespace-nowrap">
           rbhood <span style={{ color: "#02B365" }}>ai</span>

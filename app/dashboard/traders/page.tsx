@@ -112,7 +112,7 @@ export default function TradersPage() {
             {t["td_banner_pre"]} <span className="text-[#02B365] font-bold">FxPro</span> {t["td_banner_post"]}
           </div>
         </div>
-        <a href="#" target="_blank" rel="noopener noreferrer"
+        <a href="https://fxpro-direct.com/ru/partner/2RztuKNxy?platform=web" target="_blank" rel="noopener noreferrer"
           className="flex-shrink-0 inline-flex items-center gap-2 h-10 px-6 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 hover:-translate-y-px"
           style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 16px rgba(2,179,101,0.3)" }}>
           {t["td_create"]}
@@ -195,7 +195,7 @@ export default function TradersPage() {
         <div className="font-exo text-sm text-[#444] max-w-sm">
           {t["td_bottom_pre"]} <span className="text-white font-semibold">FxPro</span> {t["td_bottom_post"]}
         </div>
-        <a href="#" target="_blank" rel="noopener noreferrer"
+        <a href="https://fxpro-direct.com/ru/partner/2RztuKNxy?platform=web" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 h-10 px-8 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90"
           style={{ background: "linear-gradient(90deg,#02B365,#19BB74)", boxShadow: "0 4px 16px rgba(2,179,101,0.3)" }}>
           {t["td_create_fxpro"]}

@@ -34,7 +34,7 @@ export default function Nav() {
         {/* Logo */}
         <a href="#" className="flex items-center gap-2 shrink-0">
           <div style={{ width: 28, height: 24, overflow: "hidden", flexShrink: 0, marginTop: "-3px" }}>
-            <img src="/logo.svg" alt="" width={28} height={42} style={{ display: "block" }} />
+            <img src="/logo.svg?v=2" alt="" width={28} height={42} style={{ display: "block" }} />
           </div>
           <span className="font-orbitron font-bold text-[17px] tracking-wider text-white lowercase leading-none" style={{ lineHeight: 1 }}>
             rbhood <span className="text-[#02B365]">ai</span>

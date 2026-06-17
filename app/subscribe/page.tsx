@@ -26,7 +26,7 @@ function Paywall() {
       <header className="border-b border-[#141414] px-6 h-16 flex items-center">
         <a href="/" className="flex items-center gap-2">
           <div style={{ width: 30, height: 26, overflow: "hidden", marginTop: "-4px" }}>
-            <img src="/logo.svg" alt="" width={30} height={45} style={{ display: "block" }} />
+            <img src="/logo.svg?v=2" alt="" width={30} height={45} style={{ display: "block" }} />
           </div>
           <span className="font-orbitron font-bold text-base lowercase tracking-wider text-white">rbhood <span className="text-[#02B365]">ai</span></span>
         </a>

@@ -33,7 +33,7 @@ function AdminSidebar({ open }: { open: boolean }) {
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 py-[14px] border-b border-[#181818]">
         <div style={{ width: 28, height: 24, overflow: "hidden", flexShrink: 0, marginTop: "-3px" }}>
-          <img src="/logo.svg" alt="" width={28} height={42} style={{ display: "block" }} />
+          <img src="/logo.svg?v=2" alt="" width={28} height={42} style={{ display: "block" }} />
         </div>
         <div className="min-w-0">
           <span className="font-orbitron font-bold text-[13px] tracking-wider text-white lowercase">rbhood <span style={{ color: "#02B365" }}>ai</span></span>

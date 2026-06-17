@@ -55,9 +55,13 @@ function LangDropdown() {
   );
 }
 
-// Аватар реального пользователя — фото (Google/загруженное) или инициалы
+// Аватар реального пользователя с выпадающим меню (Аккаунт / Выйти)
 function UserAvatar() {
+  const router = useRouter();
   const [u, setU] = useState<{ name?: string; email?: string; avatar?: string }>({});
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const read = () => { try { setU(JSON.parse(localStorage.getItem("rbhood-user") || "{}")); } catch { /* ignore */ } };
     read();
@@ -65,28 +69,49 @@ function UserAvatar() {
     return () => window.removeEventListener("rbhood-user-updated", read);
   }, []);
 
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
   const label = (u.name || u.email || "").trim();
-
-  if (u.avatar) {
-    return (
-      <div className="w-7 h-7 rounded-full overflow-hidden border border-[#2a2a2a]" title={label}>
-        <img src={u.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-      </div>
-    );
-  }
-  const initials = label
-    ? label.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()
-    : "?";
-
-  const palette = ["#02B365", "#4A90D9", "#F59E0B", "#A855F7", "#EF4444", "#10B981", "#EC4899"];
-  let h = 0;
-  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
-  const bg = palette[h % palette.length];
+  const initials = (u.name || u.email || "?").trim().split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  const logout = () => {
+    try { localStorage.removeItem("rbhood-token"); localStorage.removeItem("rbhood-user"); } catch { /* ignore */ }
+    router.replace("/login");
+  };
 
   return (
-    <div className="w-7 h-7 rounded-full flex items-center justify-center font-exo font-bold text-[11px] text-white select-none"
-      title={label} style={{ background: bg }}>
-      {initials}
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(v => !v)} className="block rounded-full" title={label}>
+        {u.avatar
+          ? <div className="w-7 h-7 rounded-full overflow-hidden border border-[#2a2a2a]"><img src={u.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /></div>
+          : <div className="w-7 h-7 rounded-full flex items-center justify-center font-exo font-bold text-[11px] text-white select-none" style={{ background: "#02B365" }}>{initials}</div>}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }} transition={{ duration: 0.13 }}
+            className="absolute top-full right-0 mt-2 rounded-xl border border-[#1e1e1e] overflow-hidden z-50"
+            style={{ background: "#111", minWidth: 200, boxShadow: "0 8px 28px rgba(0,0,0,0.55)" }}>
+            <div className="px-4 py-3 border-b border-[#1a1a1a]">
+              <div className="font-exo text-sm font-bold text-white truncate">{u.name || "Пользователь"}</div>
+              <div className="font-mono text-[10px] text-[#444] truncate">{u.email}</div>
+            </div>
+            <a href="/dashboard/account" onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#161616] transition-colors text-[#888] hover:text-white">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span className="font-exo text-sm">Мой аккаунт</span>
+            </a>
+            <button onClick={logout}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-[#EF444410] transition-colors text-[#888] hover:text-[#EF4444] border-t border-[#1a1a1a]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span className="font-exo text-sm">Выйти</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -9,20 +9,39 @@ interface Data { costPerRequest: number; totalRequests: number; totalCost: numbe
 const PLAN_COLORS: Record<string, string> = { FREE: "#4A90D9", MONTHLY: "#02B365", LIFETIME: "#F59E0B" };
 const fmtUsd = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<Data | null>(null);
   const [err, setErr] = useState("");
   const [search, setSearch] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  useEffect(() => {
+  const load = (f: string, t: string) => {
+    setErr("");
     const token = localStorage.getItem("rbhood-token");
-    fetch(`${API}/api/analytics`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    const qs = new URLSearchParams();
+    if (f) qs.set("from", f);
+    if (t) qs.set("to", t);
+    fetch(`${API}/api/analytics?${qs.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(async r => {
         if (!r.ok) { setErr(r.status === 403 ? "Доступ только для администратора" : "Не удалось загрузить"); return; }
         setData(await r.json());
       })
       .catch(() => setErr("Сервер недоступен"));
-  }, []);
+  };
+
+  useEffect(() => { load("", ""); }, []);
+
+  const apply = (f: string, t: string) => { setFrom(f); setTo(t); load(f, t); };
+  const presetToday = () => { const d = localDate(new Date()); apply(d, d); };
+  const presetMonth = () => {
+    const n = new Date();
+    apply(localDate(new Date(n.getFullYear(), n.getMonth(), 1)), localDate(new Date(n.getFullYear(), n.getMonth() + 1, 0)));
+  };
+  const presetAll = () => apply("", "");
+  const periodLabel = !from && !to ? "Всё время" : from === to ? from : `${from || "…"} — ${to || "…"}`;
 
   const rows = (data?.rows || []).filter(r => {
     const q = search.toLowerCase();
@@ -36,6 +55,33 @@ export default function AnalyticsPage() {
         <p className="font-exo text-sm text-[#444] mt-0.5">Расход по запросам анализа · {data ? fmtUsd(data.costPerRequest) : "$0.001"} за запрос</p>
       </div>
       {err && <div className="font-exo text-sm text-[#EF4444] bg-[#EF444410] border border-[#EF444425] rounded-xl px-4 py-3">{err}</div>}
+
+      {/* Период */}
+      <div className="rounded-2xl border border-[#1a1a1a] p-4 flex flex-wrap items-end gap-3" style={{ background: "#111" }}>
+        <div>
+          <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">С даты</div>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+            className="bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" style={{ colorScheme: "dark" }} />
+        </div>
+        <div>
+          <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">По дату</div>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)}
+            className="bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" style={{ colorScheme: "dark" }} />
+        </div>
+        <button onClick={() => load(from, to)}
+          className="px-4 py-2 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90" style={{ background: "linear-gradient(90deg,#02B365,#19BB74)" }}>
+          Применить
+        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          {[["Сегодня", presetToday], ["Текущий месяц", presetMonth], ["Всё время", presetAll]].map(([label, fn]) => (
+            <button key={label as string} onClick={fn as () => void}
+              className="px-3 py-2 rounded-xl font-exo text-xs font-semibold text-[#888] border border-[#1e1e1e] hover:text-white hover:border-[#333] transition-all" style={{ background: "#161616" }}>
+              {label as string}
+            </button>
+          ))}
+        </div>
+        <div className="w-full font-mono text-[11px] text-[#555]">Период: <span className="text-[#02B365]">{periodLabel}</span></div>
+      </div>
 
       {/* Сводка */}
       {data && (

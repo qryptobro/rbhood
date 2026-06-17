@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const prisma = require("../lib/prisma");
 const auth = require("../middleware/auth");
-const { readUsage } = require("../lib/usage");
+const { aggregate } = require("../lib/usage");
 
 const COST_PER_REQUEST = Number(process.env.COST_PER_REQUEST_USD || 0.001);
 
@@ -10,9 +10,12 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// GET /api/analytics — расход по пользователям (только админ)
+// GET /api/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD — расход по пользователям (только админ)
 router.get("/", auth, adminOnly, async (req, res) => {
-  const usage = readUsage(); // { userId: count }
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  const from = re.test(req.query.from || "") ? req.query.from : null;
+  const to = re.test(req.query.to || "") ? req.query.to : null;
+  const usage = aggregate(from, to); // { userId: count } за период
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, plan: true },
   });
@@ -35,6 +38,7 @@ router.get("/", auth, adminOnly, async (req, res) => {
 
   const totalRequests = rows.reduce((s, r) => s + r.requests, 0);
   res.json({
+    from, to,
     costPerRequest: COST_PER_REQUEST,
     totalRequests,
     totalCost: +(totalRequests * COST_PER_REQUEST).toFixed(4),

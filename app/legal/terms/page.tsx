@@ -35,7 +35,7 @@ export default function TermsPage() {
       <p>Мы можем обновлять настоящие Условия. Актуальная версия всегда доступна на этой странице.</p>
 
       <h2>9. Контакты</h2>
-      <p>По вопросам: <a href="mailto:support@rbhood.ai">support@rbhood.ai</a></p>
+      <p>По вопросам: <a href="mailto:support@rbhood.kz">support@rbhood.kz</a></p>
     </>
   );
 }

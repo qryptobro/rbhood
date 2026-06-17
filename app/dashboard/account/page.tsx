@@ -147,7 +147,7 @@ export default function AccountPage() {
       <div>
         <h2 className="font-exo font-bold text-white text-lg mb-1">{t["acc_support"]}</h2>
         <p className="font-exo text-sm text-[#444] mb-5">{t["acc_support_sub"]}</p>
-        <a href="mailto:support@rbhood.ai"
+        <a href="mailto:support@rbhood.kz"
           className="inline-flex items-center gap-2.5 h-10 px-5 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90"
           style={{ background: "#2563EB", boxShadow: "0 2px 12px rgba(37,99,235,0.3)" }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

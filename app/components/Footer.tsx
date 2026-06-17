@@ -17,7 +17,7 @@ export default function Footer() {
     {
       title: t["footer_company"],
       links: [
-        { label: t["footer_contact"], href: "mailto:support@rbhood.ai" },
+        { label: t["footer_contact"], href: "mailto:support@rbhood.kz" },
       ],
     },
     {

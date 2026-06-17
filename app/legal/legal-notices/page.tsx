@@ -5,7 +5,7 @@ export default function LegalNoticesPage() {
       <div className="updated">Обновлено: 15 июня 2026</div>
 
       <h2>Оператор сервиса</h2>
-      <p>Сервис rbhood ai управляется его правообладателем. Контакт для юридических вопросов: <a href="mailto:support@rbhood.ai">support@rbhood.ai</a>.</p>
+      <p>Сервис rbhood ai управляется его правообладателем. Контакт для юридических вопросов: <a href="mailto:support@rbhood.kz">support@rbhood.kz</a>.</p>
 
       <h2>Интеллектуальная собственность</h2>
       <p>Название, логотип, дизайн, тексты и программный код Сервиса являются интеллектуальной собственностью rbhood ai. Любое использование без письменного разрешения запрещено.</p>
@@ -20,7 +20,7 @@ export default function LegalNoticesPage() {
       <p>К отношениям с пользователями применяется законодательство страны регистрации оператора Сервиса.</p>
 
       <h2>Связь</h2>
-      <p>По всем правовым вопросам пишите на <a href="mailto:support@rbhood.ai">support@rbhood.ai</a>.</p>
+      <p>По всем правовым вопросам пишите на <a href="mailto:support@rbhood.kz">support@rbhood.kz</a>.</p>
     </>
   );
 }

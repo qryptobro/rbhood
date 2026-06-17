@@ -1,4 +1,6 @@
 const router = require("express").Router();
+const jwt = require("jsonwebtoken");
+const { incr } = require("../lib/usage");
 const { getMarketData, getCandles, calcRSI, calcVolumes } = require("../services/marketData");
 const { computeIndicators } = require("../services/indicators");
 const { getEconomicCalendar } = require("../services/calendar");
@@ -31,6 +33,15 @@ router.post("/", async (req, res) => {
   if (!symbol || !category) {
     return res.status(400).json({ error: "symbol and category required" });
   }
+
+  // Учёт расхода: считаем запрос за пользователем (если есть токен)
+  try {
+    const h = req.headers.authorization;
+    if (h?.startsWith("Bearer ") && process.env.JWT_SECRET) {
+      const payload = jwt.verify(h.slice(7), process.env.JWT_SECRET);
+      incr(payload.userId);
+    }
+  } catch { /* токен невалиден/отсутствует — просто не считаем */ }
 
   try {
     // 1. Дневные свечи — для заголовочных метрик (RSI, стабильность, объёмы, спарклайны)

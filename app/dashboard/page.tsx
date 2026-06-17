@@ -174,9 +174,10 @@ function fmtVol(v: number): string {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 async function fetchAnalysis(symbol: string, category: string, lang: string): Promise<APIResponse> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("rbhood-token") : null;
   const res = await fetch(`${API_URL}/api/analysis`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ symbol, category, lang }),
   });
   if (!res.ok) {

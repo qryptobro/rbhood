@@ -85,15 +85,16 @@ export default function Testimonials() {
           </h2>
         </div>
 
-        <div className="relative overflow-hidden" style={{ height: 620 }}>
+        {/* ПК: анимированная лента из 3 колонок */}
+        <div className="relative overflow-hidden hidden md:block" style={{ height: 620 }}>
           <div className="absolute top-0 left-0 right-0 h-28 z-10 pointer-events-none"
             style={{ background: "linear-gradient(to bottom, #F4F4F5, transparent)" }} />
           <div className="absolute bottom-0 left-0 right-0 h-28 z-10 pointer-events-none"
             style={{ background: "linear-gradient(to top, #F4F4F5, transparent)" }} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+          <div className="grid grid-cols-3 gap-4 h-full">
             {[0, 1, 2].map((ci) => (
-              <div key={ci} className={`${ci === 0 ? "block" : "hidden md:block"}`}>
+              <div key={ci}>
                 <div className="flex flex-col"
                   style={{ animation: "scrollUp 26s linear infinite", animationDelay: `${[-0, -9, -18][ci]}s` }}>
                   {useReal
@@ -106,6 +107,16 @@ export default function Testimonials() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Мобайл: простой статичный список (без анимации и фикс. высоты) */}
+        <div className="md:hidden flex flex-col gap-4">
+          {useReal
+            ? active.map((r, i) => <ReviewCard key={i} r={r} />)
+            : testimonials.map((item, i) => (
+                <TextCard key={i} initials={item.initials} name={item.name}
+                  role={extraKeys[item.roleKey] ?? ""} text={extraKeys[item.textKey] ?? ""} />
+              ))}
         </div>
       </div>
 

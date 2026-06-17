@@ -442,14 +442,14 @@ export default function DashboardPage() {
     stocks: t["db_tab_stocks"],
   };
 
-  const analyze = async (asset: Asset) => {
+  const analyze = async (asset: Asset, category: Tab = tab) => {
     setSelected(asset);
     setScanning(true);
     setResult(null);
     setApiData(null);
     setApiError(null);
     try {
-      const data = await fetchAnalysis(asset.symbol, tab, lang);
+      const data = await fetchAnalysis(asset.symbol, category, lang);
       setApiData(data);
       const mapped = apiToResult(data, asset, t);
       setResult(mapped);
@@ -464,6 +464,30 @@ export default function DashboardPage() {
       setScanning(false);
     }
   };
+
+  // Открыть анализ по тикеру (клик по истории в сайдбаре)
+  const openByTicker = (ticker: string) => {
+    if (!ASSETS) return;
+    const tabs: Tab[] = ["forex", "crypto", "stocks"];
+    const foundTab = tabs.find(tb => ASSETS[tb].some(a => a.symbol === ticker));
+    if (!foundTab) return;
+    const asset = ASSETS[foundTab].find(a => a.symbol === ticker)!;
+    setTab(foundTab);
+    analyze(asset, foundTab);
+  };
+
+  // Слушаем команду из сайдбара + проверяем sessionStorage (если перешли с другой страницы)
+  useEffect(() => {
+    if (!ASSETS) return;
+    let pending: string | null = null;
+    try { pending = sessionStorage.getItem("rb-open-analysis"); } catch { /* ignore */ }
+    if (pending) { try { sessionStorage.removeItem("rb-open-analysis"); } catch { /* ignore */ } openByTicker(pending); }
+
+    const handler = (e: Event) => openByTicker((e as CustomEvent<string>).detail);
+    window.addEventListener("rb-open-analysis", handler);
+    return () => window.removeEventListener("rb-open-analysis", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ASSETS]);
 
   // При смене языка — пере-запускаем анализ, чтобы AI-текст пришёл на новом языке
   const prevLang = useRef(lang);

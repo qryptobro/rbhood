@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "./i18n";
 import GoogleSignIn from "./GoogleSignIn";
@@ -10,7 +10,26 @@ const HAS_GOOGLE = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const { t } = useI18n();
   const router = useRouter();
+  const [checking, setChecking] = useState(true); // авто-вход по сохранённому токену
   const [showPwd, setShowPwd] = useState(false);
+
+  // Если уже залогинен (токен жив) — пускаем без повторного ввода
+  useEffect(() => {
+    const token = localStorage.getItem("rbhood-token");
+    if (!token) { setChecking(false); return; }
+    fetch(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async r => {
+        if (!r.ok) {
+          try { localStorage.removeItem("rbhood-token"); localStorage.removeItem("rbhood-user"); } catch { /* ignore */ }
+          setChecking(false);
+          return;
+        }
+        const me = await r.json();
+        try { localStorage.setItem("rbhood-user", JSON.stringify(me)); } catch { /* ignore */ }
+        router.replace(me.plan && me.plan !== "FREE" ? "/dashboard" : "/subscribe");
+      })
+      .catch(() => setChecking(false)); // офлайн — показываем форму
+  }, [router]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +66,14 @@ export default function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#080808" }}>
+        <div className="font-exo text-sm text-[#444]">…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"

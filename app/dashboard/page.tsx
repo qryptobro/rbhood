@@ -389,7 +389,9 @@ function Accordion({ title, icon, children }: { title: string; icon: React.React
 export default function DashboardPage() {
   const { t, lang } = useI18n();
   const { tools } = useStore();
-  const { pushHistory } = useHistory();
+  const { history, pushHistory } = useHistory();
+  const historyRef = useRef<typeof history>(history);
+  useEffect(() => { historyRef.current = history; }, [history]);
   const [tab, setTab] = useState<Tab>("forex");
   const [selected, setSelected] = useState<Asset | null>(null);
   const [ASSETS, setASSETS] = useState<Record<Tab, Asset[]> | null>(null);
@@ -455,8 +457,11 @@ export default function DashboardPage() {
       setResult(mapped);
       pushHistory({
         ticker: asset.symbol,
+        name: asset.name,
+        category,
         signal: mapped.signal,
         time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+        data, // сохраняем полный анализ, чтобы открыть его из истории без пересчёта
       });
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Ошибка");
@@ -465,25 +470,38 @@ export default function DashboardPage() {
     }
   };
 
-  // Открыть анализ по тикеру (клик по истории в сайдбаре)
-  const openByTicker = (ticker: string) => {
-    if (!ASSETS) return;
-    const tabs: Tab[] = ["forex", "crypto", "stocks"];
-    const foundTab = tabs.find(tb => ASSETS[tb].some(a => a.symbol === ticker));
-    if (!foundTab) return;
-    const asset = ASSETS[foundTab].find(a => a.symbol === ticker)!;
-    setTab(foundTab);
-    analyze(asset, foundTab);
+  // Открыть СОХРАНЁННЫЙ анализ из истории по id (без пересчёта)
+  const openHistory = (id: number) => {
+    const item = historyRef.current.find(h => h.id === id);
+    if (!item) return;
+    if (item.data) {
+      const api = item.data as APIResponse;
+      const asset: Asset = { symbol: item.ticker, name: item.name || item.ticker, price: "", change: "", up: true };
+      if (item.category) setTab(item.category as Tab);
+      setApiError(null);
+      setScanning(false);
+      setSelected(asset);
+      setApiData(api);
+      setResult(apiToResult(api, asset, t));
+    } else {
+      // старые записи без снимка — запускаем свежий анализ по тикеру
+      if (!ASSETS) return;
+      const tabs: Tab[] = ["forex", "crypto", "stocks"];
+      const foundTab = tabs.find(tb => ASSETS[tb].some(a => a.symbol === item.ticker));
+      if (!foundTab) return;
+      const asset = ASSETS[foundTab].find(a => a.symbol === item.ticker)!;
+      setTab(foundTab);
+      analyze(asset, foundTab);
+    }
   };
 
   // Слушаем команду из сайдбара + проверяем sessionStorage (если перешли с другой страницы)
   useEffect(() => {
-    if (!ASSETS) return;
     let pending: string | null = null;
     try { pending = sessionStorage.getItem("rb-open-analysis"); } catch { /* ignore */ }
-    if (pending) { try { sessionStorage.removeItem("rb-open-analysis"); } catch { /* ignore */ } openByTicker(pending); }
+    if (pending) { try { sessionStorage.removeItem("rb-open-analysis"); } catch { /* ignore */ } openHistory(Number(pending)); }
 
-    const handler = (e: Event) => openByTicker((e as CustomEvent<string>).detail);
+    const handler = (e: Event) => openHistory(Number((e as CustomEvent<string>).detail));
     window.addEventListener("rb-open-analysis", handler);
     return () => window.removeEventListener("rb-open-analysis", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps

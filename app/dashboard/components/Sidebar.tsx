@@ -145,13 +145,13 @@ export default function Sidebar({ history, onDeleteHistory }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Клик по истории — открыть анализ этого тикера на дашборде
-  const openAnalysis = (ticker: string) => {
-    try { sessionStorage.setItem("rb-open-analysis", ticker); } catch { /* ignore */ }
+  // Клик по истории — открыть СОХРАНЁННЫЙ анализ по id записи
+  const openAnalysis = (id: number) => {
+    try { sessionStorage.setItem("rb-open-analysis", String(id)); } catch { /* ignore */ }
     if (pathname !== "/dashboard") {
       router.push("/dashboard"); // страница сама прочитает sessionStorage при монтировании
     } else {
-      window.dispatchEvent(new CustomEvent("rb-open-analysis", { detail: ticker }));
+      window.dispatchEvent(new CustomEvent("rb-open-analysis", { detail: String(id) }));
     }
   };
   // тикаем раз в 30с, чтобы относительное время обновлялось
@@ -191,7 +191,7 @@ export default function Sidebar({ history, onDeleteHistory }: SidebarProps) {
         )}
         {history.map(h => (
           <div key={h.id} className="flex items-center gap-1 px-2 py-2.5 rounded-lg hover:bg-[#161616] cursor-pointer group transition-colors">
-            <div className="flex-1 min-w-0" onClick={() => openAnalysis(h.ticker)}>
+            <div className="flex-1 min-w-0" onClick={() => openAnalysis(h.id)}>
               <div className="font-exo text-sm font-semibold text-white group-hover:text-[#02B365] transition-colors mb-0.5 truncate">{h.ticker}</div>
               <div className="flex items-center gap-1.5 text-[#444]">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

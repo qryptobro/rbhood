@@ -7,8 +7,11 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 export interface HistoryItem {
   id: number;
   ticker: string;
+  name?: string;       // название актива (Gold / Dollar)
+  category?: string;   // forex | crypto | stocks
   signal: "BUY" | "SELL" | "HOLD";
   time: string;
+  data?: unknown;      // полный ответ анализа (APIResponse) для восстановления снимка
 }
 
 interface HistoryContextType {

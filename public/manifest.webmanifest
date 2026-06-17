@@ -2,7 +2,7 @@
   "name": "rbhood ai",
   "short_name": "rbhood ai",
   "description": "ИИ-анализ активов: Форекс, Крипто, Акции",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#080808",
   "theme_color": "#080808",

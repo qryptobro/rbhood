@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-interface Row { id: number; name: string; email: string; plan: string; requests: number; cost: number }
+interface Row { id: number; name: string; email: string; plan: string; requests: number; cost: number; ips: number; suspicious: boolean }
 interface Data { costPerRequest: number; totalRequests: number; totalCost: number; rows: Row[] }
+interface DeviceInfo { ip: string; ua: string; count: number; first: number; last: number }
 
 const PLAN_COLORS: Record<string, string> = { FREE: "#4A90D9", MONTHLY: "#02B365", LIFETIME: "#F59E0B" };
 const fmtUsd = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -17,6 +18,16 @@ export default function AnalyticsPage() {
   const [search, setSearch] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [devModal, setDevModal] = useState<{ row: Row; list: DeviceInfo[] } | null>(null);
+
+  const openDevices = async (row: Row) => {
+    const token = localStorage.getItem("rbhood-token");
+    try {
+      const r = await fetch(`${API}/api/analytics/devices/${row.id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const d = await r.json();
+      setDevModal({ row, list: d.list || [] });
+    } catch { setDevModal({ row, list: [] }); }
+  };
 
   const load = (f: string, t: string) => {
     setErr("");
@@ -110,14 +121,14 @@ export default function AnalyticsPage() {
 
       {/* Таблица */}
       <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden" style={{ background: "#111" }}>
-        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4 px-5 py-2.5 border-b border-[#181818]" style={{ background: "#0d0d0d" }}>
-          {["Имя","Email","Тариф","Запросы","Расход"].map(h => (
+        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-4 px-5 py-2.5 border-b border-[#181818]" style={{ background: "#0d0d0d" }}>
+          {["Имя","Email","Тариф","Запросы","Расход","IP / устр."].map(h => (
             <span key={h} className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{h}</span>
           ))}
         </div>
         <div className="divide-y divide-[#141414]">
           {rows.map(r => (
-            <div key={r.id} className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4 items-center px-5 py-3 hover:bg-[#141414] transition-colors">
+            <div key={r.id} className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-4 items-center px-5 py-3 hover:bg-[#141414] transition-colors">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center font-exo font-bold text-xs text-white" style={{ background: "#1a1a1a", border: "1px solid #222" }}>{(r.name || "?")[0].toUpperCase()}</div>
                 <span className="font-exo text-sm text-white truncate">{r.name}</span>
@@ -126,6 +137,15 @@ export default function AnalyticsPage() {
               <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-md w-fit" style={{ color: PLAN_COLORS[r.plan] ?? "#666", background: (PLAN_COLORS[r.plan] ?? "#666") + "15" }}>{r.plan}</span>
               <span className="font-orbitron text-sm font-bold text-white">{r.requests.toLocaleString("ru-RU")}</span>
               <span className="font-orbitron text-sm font-bold" style={{ color: "#02B365" }}>{fmtUsd(r.cost)}</span>
+              <button onClick={() => openDevices(r)}
+                className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg w-fit flex items-center gap-1.5 transition-colors hover:opacity-80"
+                title="Показать IP/устройства"
+                style={r.suspicious ? { color: "#EF4444", background: "#EF444415", border: "1px solid #EF444430" } : { color: "#888", background: "#1a1a1a" }}>
+                {r.suspicious && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                )}
+                {r.ips}
+              </button>
             </div>
           ))}
           {rows.length === 0 && !err && (
@@ -133,6 +153,39 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* Детали устройств/IP */}
+      {devModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)" }}
+          onClick={e => e.target === e.currentTarget && setDevModal(null)}>
+          <div className="w-full max-w-lg rounded-2xl border border-[#222] p-6 max-h-[85vh] overflow-y-auto" style={{ background: "#111" }}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-orbitron font-bold text-white">IP и устройства</span>
+              <button onClick={() => setDevModal(null)} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#444] hover:text-white hover:bg-[#1e1e1e] transition-all">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <p className="font-mono text-[11px] text-[#555] mb-4">{devModal.row.name} · {devModal.row.email} · уникальных IP: <span style={{ color: devModal.row.suspicious ? "#EF4444" : "#02B365" }}>{devModal.list.length}</span></p>
+            {devModal.row.suspicious && (
+              <div className="font-exo text-xs text-[#EF4444] bg-[#EF444410] border border-[#EF444425] rounded-lg px-3 py-2 mb-4">
+                Много разных IP — возможно, аккаунтом пользуются несколько человек. Заблокировать можно в разделе «Пользователи».
+              </div>
+            )}
+            <div className="space-y-2">
+              {devModal.list.map((d, i) => (
+                <div key={i} className="rounded-xl border border-[#1a1a1a] px-3 py-2.5" style={{ background: "#161616" }}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-sm text-white">{d.ip}</span>
+                    <span className="font-mono text-[10px] text-[#555]">{new Date(d.last).toLocaleString("ru-RU")}</span>
+                  </div>
+                  <div className="font-exo text-[11px] text-[#555] mt-1 truncate">{d.ua || "—"}</div>
+                </div>
+              ))}
+              {devModal.list.length === 0 && <div className="font-exo text-sm text-[#444] text-center py-6">Нет данных</div>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

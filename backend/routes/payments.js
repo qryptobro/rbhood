@@ -6,6 +6,7 @@ const auth = require("../middleware/auth");
 const prisma = require("../lib/prisma");
 const referrals = require("../lib/referrals");
 const partnerCodes = require("../lib/partnerCodes");
+const notify = require("../lib/notify");
 
 // Промокоды лежат в админ-сторе (backend/data/store.json)
 const STORE_FILE = path.join(__dirname, "..", "data", "store.json");
@@ -79,6 +80,13 @@ const apipay = async (path, { method = "GET", body } = {}) => {
 const grantPlan = async (userId, plan) => {
   await prisma.user.update({ where: { id: userId }, data: { plan } });
 };
+
+// GET /api/payments/notify-test — отправить тестовое уведомление в Telegram (только админ)
+router.get("/notify-test", auth, async (req, res) => {
+  if (req.user.role !== "ADMIN") return res.status(403).json({ error: "Forbidden" });
+  const ok = await notify.send("✅ Тест уведомлений rbhood ai — бот работает!");
+  res.json({ ok, configured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) });
+});
 
 // GET /api/payments/promo?code=WELCOME20&plan=MONTHLY — проверить промокод
 router.get("/promo", auth, (req, res) => {
@@ -162,6 +170,7 @@ router.get("/:id/status", auth, async (req, res) => {
     if (status === "paid" && plan) {
       await grantPlan(req.user.id, plan); // выдаём тариф залогиненному пользователю
       try { referrals.credit(req.params.id); } catch { /* учёт не должен ломать оплату */ }
+      try { notify.paymentPaid({ invoiceId: req.params.id, plan, amount: r.data.amount, email: req.user.email }); } catch { /* ignore */ }
     }
     res.json({ status });
   } catch (e) {
@@ -189,6 +198,11 @@ router.post("/webhook", async (req, res) => {
       const m = /^rbhood_u(\d+)_(MONTHLY|LIFETIME)_/.exec(ext);
       if (m) await grantPlan(Number(m[1]), m[2]);
       try { referrals.credit(inv.id || payload.id); } catch { /* ignore */ }
+      try {
+        let email;
+        if (m) { const u = await prisma.user.findUnique({ where: { id: Number(m[1]) } }); email = u?.email; }
+        notify.paymentPaid({ invoiceId: inv.id || payload.id, plan: m ? m[2] : undefined, amount: inv.amount, email });
+      } catch { /* ignore */ }
     }
     res.json({ ok: true });
   } catch (e) {

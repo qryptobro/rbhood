@@ -1,6 +1,14 @@
 # server.py — MT5 мост для rbhood-ai
 # Отдаёт OHLCV-свечи из терминала FxPro MT5 по HTTP.
 # Node-бэкенд дёргает GET /candles?symbol=BTCUSDT&tf=5m&n=200
+import sys
+# Принудительно UTF-8 для вывода, иначе print с кириллицей/«—» падает на Windows (cp1252)
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 import MetaTrader5 as mt5
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -111,6 +119,6 @@ if __name__ == "__main__":
         acc = mt5.account_info()
         print(f"MT5 connected: {acc.login} @ {acc.server} ({acc.company})")
     else:
-        print(f"MT5 init WARNING: {err} — терминал FxPro должен быть запущен и залогинен")
+        print(f"MT5 init WARNING: {err} - терминал FxPro должен быть запущен и залогинен")
     print(f"MT5 bridge listening on http://127.0.0.1:{PORT}")
     app.run(host="127.0.0.1", port=PORT, threaded=True)

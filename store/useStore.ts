@@ -120,6 +120,7 @@ export interface Promo {
   value: number;                   // 20 (%) или 5000 (₸)
   active: boolean;
   partner?: string;                // имя партнёра (если это реферальный код)
+  partnerEmail?: string;           // email аккаунта партнёра — привязка кода к кабинету
   commission?: number;             // % комиссии партнёру с оплаты (напр. 30)
 }
 

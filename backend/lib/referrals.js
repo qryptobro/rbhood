@@ -59,6 +59,15 @@ function summary() {
   })).sort((a, b) => b.owed - a.owed);
 }
 
+// Статистика по конкретным кодам (для кабинета партнёра)
+function forCodes(codes) {
+  const refs = read(REFS, { processed: {}, codes: {} });
+  return (codes || []).map((code) => {
+    const c = refs.codes[String(code).toUpperCase()] || {};
+    return { code: String(code).toUpperCase(), sales: c.sales || 0, revenue: c.revenue || 0, commission: c.commission || 0 };
+  });
+}
+
 // Отметить комиссию выплаченной (всю накопленную по коду)
 function payout(code) {
   const refs = read(REFS, { processed: {}, codes: {} });
@@ -69,4 +78,4 @@ function payout(code) {
   return true;
 }
 
-module.exports = { setPending, credit, summary, payout };
+module.exports = { setPending, credit, summary, payout, forCodes };

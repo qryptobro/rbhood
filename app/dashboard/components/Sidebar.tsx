@@ -65,12 +65,13 @@ function UserMenu() {
                 <div className="font-mono text-[10px] text-[#444] truncate">{email}</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#1a1a1a]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <a href="/dashboard/partner" onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 border-b border-[#1a1a1a] hover:bg-[#161616] transition-colors group">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
-              <span className="font-exo text-sm text-[#333]">Стать партнёром</span>
-            </div>
+              <span className="font-exo text-sm text-[#888] group-hover:text-white transition-colors">Стать партнёром</span>
+            </a>
             {items.map(item => (
               <a key={item.label} href={item.href}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#161616] transition-colors group"

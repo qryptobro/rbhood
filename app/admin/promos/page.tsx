@@ -16,6 +16,7 @@ function PromoModal({
   const [value, setValue] = useState(String(promo.value ?? ""));
   const [active, setActive] = useState(promo.active ?? true);
   const [partner, setPartner] = useState(promo.partner ?? "");
+  const [partnerEmail, setPartnerEmail] = useState(promo.partnerEmail ?? "");
   const [commission, setCommission] = useState(String(promo.commission ?? ""));
 
   const handleSave = () => {
@@ -24,6 +25,7 @@ function PromoModal({
     onSave({
       code: code.trim().toUpperCase(), type, value: v, active,
       partner: partner.trim(),
+      partnerEmail: partnerEmail.trim().toLowerCase(),
       commission: Number(commission) || 0,
     });
   };
@@ -83,11 +85,17 @@ function PromoModal({
               className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
           </div>
           <div>
+            <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Email аккаунта партнёра</div>
+            <input value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} placeholder="partner@example.com" inputMode="email"
+              className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
+            <div className="font-mono text-[9px] text-[#444] mt-1">Привязывает код к кабинету партнёра (он увидит статистику в дашборде → «Партнёр»).</div>
+          </div>
+          <div>
             <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Комиссия партнёру, %</div>
             <input value={commission} onChange={e => setCommission(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" placeholder="30"
               className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
           </div>
-          <div className="font-mono text-[10px] text-[#444]">Заполни, если код принадлежит партнёру. Тогда с каждой оплаты по коду партнёру начисляется комиссия (видно в разделе «Партнёры»).</div>
+          <div className="font-mono text-[10px] text-[#444]">Заполни, если код принадлежит партнёру. С каждой оплаты по коду партнёру начисляется комиссия (видно в «Партнёры» и в кабинете партнёра).</div>
         </div>
 
         {/* Active */}

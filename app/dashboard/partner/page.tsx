@@ -7,8 +7,10 @@ const fmtKzt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
 interface CodeInfo { code: string; discount: string; commission: number }
 interface Stat { code: string; sales: number; revenue: number; commission: number }
 interface Withdrawal { id: number; amount: number; card: string; status: string; requestedAt: number; paidAt: number | null }
+interface CodeConfig { discount: number; commission: number; maxPerUser: number; canCreate: boolean }
 interface Me {
   isPartner: boolean; minWithdraw: number;
+  codeConfig: CodeConfig;
   codes: CodeInfo[]; stats: Stat[];
   earned: number; paid: number; pending: number; available: number;
   withdrawals: Withdrawal[];
@@ -21,6 +23,27 @@ export default function PartnerPage() {
   const [card, setCard] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
+
+  const createCode = async () => {
+    if (!newCode.trim()) return;
+    setCodeMsg(null); setCodeBusy(true);
+    try {
+      const token = localStorage.getItem("rbhood-token");
+      const r = await fetch(`${API}/api/partner/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: newCode.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setCodeMsg({ ok: false, text: d.error || "Ошибка" }); return; }
+      setMe(d); setNewCode("");
+      setCodeMsg({ ok: true, text: "Промокод создан" });
+    } catch { setCodeMsg({ ok: false, text: "Сервер недоступен" }); }
+    finally { setCodeBusy(false); }
+  };
 
   const load = () => {
     const token = localStorage.getItem("rbhood-token");
@@ -54,31 +77,18 @@ export default function PartnerPage() {
   if (err) return <div className="px-8 py-10 max-w-3xl mx-auto"><div className="font-exo text-sm text-[#EF4444]">{err}</div></div>;
   if (!me) return <div className="px-8 py-10 max-w-3xl mx-auto"><div className="font-exo text-sm text-[#444]">Загрузка…</div></div>;
 
-  if (!me.isPartner) {
-    return (
-      <div className="px-6 md:px-8 py-10 max-w-2xl mx-auto">
-        <h1 className="font-exo font-bold text-white text-2xl mb-2">Партнёрская программа</h1>
-        <div className="rounded-2xl border border-[#1a1a1a] p-8 text-center mt-4" style={{ background: "#111" }}>
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 mx-auto border border-[#1e1e1e]" style={{ background: "#161616" }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-          <div className="font-exo font-bold text-white text-lg mb-1">Станьте партнёром</div>
-          <p className="font-exo text-sm text-[#666] mb-5 max-w-md mx-auto">Приводите клиентов по своему промокоду и получайте комиссию с каждой оплаты. Чтобы подключиться — напишите в поддержку по партнёрству <span className="text-[#02B365]">@rbhoodai</span>.</p>
-          <a href="https://t.me/rbhoodai" target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 h-10 px-5 rounded-xl font-exo font-bold text-sm text-white" style={{ background: "linear-gradient(90deg,#229ED9,#2AABEE)" }}>
-            Стать партнёром
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="px-6 md:px-8 py-10 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="font-exo font-bold text-white text-2xl mb-1">Партнёрский кабинет</h1>
-        <p className="font-exo text-sm text-[#444]">Ваша статистика и вывод средств</p>
+        <p className="font-exo text-sm text-[#444]">Создайте промокод, приводите клиентов и получайте комиссию</p>
       </div>
+
+      {!me.isPartner && (
+        <div className="rounded-2xl border border-[#02B36530] p-4 font-exo text-sm text-[#9ad5b8]" style={{ background: "#02B3650d" }}>
+          Создайте свой промокод ниже и начните зарабатывать. Условия фиксированы: клиент получает <b className="text-white">−{me.codeConfig.discount}%</b>, вы — <b className="text-white">{me.codeConfig.commission}%</b> комиссии с каждой оплаты.
+        </div>
+      )}
 
       {/* Карточки */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -98,7 +108,29 @@ export default function PartnerPage() {
       {/* Промокоды */}
       <div className="rounded-2xl border border-[#1a1a1a] p-5" style={{ background: "#111" }}>
         <div className="font-exo font-bold text-white text-sm mb-3">Ваши промокоды</div>
+
+        {/* Создать код */}
+        {me.codeConfig.canCreate && (
+          <div className="mb-4">
+            <div className="flex gap-2">
+              <input value={newCode} onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setCodeMsg(null); }}
+                placeholder="ВАШ КОД (напр. NURLAN)" maxLength={20}
+                className="flex-1 h-11 px-3.5 rounded-xl border border-[#1e1e1e] bg-[#0d0d0d] text-white text-sm font-mono tracking-wider outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] placeholder:font-exo placeholder:tracking-normal" />
+              <button onClick={createCode} disabled={codeBusy || !newCode.trim()}
+                className="px-5 h-11 rounded-xl font-exo font-bold text-sm text-white transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: "linear-gradient(90deg,#02B365,#19BB74)" }}>
+                {codeBusy ? "…" : "Создать"}
+              </button>
+            </div>
+            <div className="font-mono text-[10px] text-[#555] mt-1.5">
+              Условия фиксированы: скидка клиенту −{me.codeConfig.discount}%, ваша комиссия {me.codeConfig.commission}%.
+            </div>
+            {codeMsg && <div className="font-exo text-xs mt-1.5" style={{ color: codeMsg.ok ? "#02B365" : "#EF4444" }}>{codeMsg.text}</div>}
+          </div>
+        )}
+
         <div className="space-y-2">
+          {me.codes.length === 0 && <div className="font-exo text-sm text-[#444] py-2">У вас пока нет промокодов — создайте первый выше.</div>}
           {me.codes.map(c => {
             const stat = me.stats.find(s => s.code === c.code);
             return (

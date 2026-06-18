@@ -5,6 +5,7 @@ const path = require("path");
 const auth = require("../middleware/auth");
 const prisma = require("../lib/prisma");
 const referrals = require("../lib/referrals");
+const partnerCodes = require("../lib/partnerCodes");
 
 // Промокоды лежат в админ-сторе (backend/data/store.json)
 const STORE_FILE = path.join(__dirname, "..", "data", "store.json");
@@ -18,11 +19,13 @@ const readPromos = () => {
   } catch { return []; }
 };
 
-// Найти активный промокод по коду (без учёта регистра)
+// Найти активный промокод по коду (админ-стор + коды, созданные партнёрами)
 const findPromo = (code) => {
   const c = String(code || "").trim().toUpperCase();
   if (!c) return null;
-  return readPromos().find((p) => p.active && String(p.code).toUpperCase() === c) || null;
+  const admin = readPromos().find((p) => p.active && String(p.code).toUpperCase() === c);
+  if (admin) return admin;
+  return partnerCodes.findByCode(c); // партнёрские коды с фикс. условиями
 };
 
 // Применить скидку к сумме (тенге, целое)

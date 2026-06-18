@@ -53,8 +53,11 @@ _lock = threading.Lock()  # MT5 API не потокобезопасен
 def ensure_mt5():
     """Гарантирует живое подключение к терминалу."""
     if mt5.terminal_info() is None:
-        if not mt5.initialize(path=FXPRO_PATH):
-            return False, mt5.last_error()
+        # Сначала подключаемся к УЖЕ открытому терминалу (без пути — не виснет).
+        if not mt5.initialize():
+            # Запасной вариант — запустить терминал по пути (если он закрыт).
+            if not mt5.initialize(path=FXPRO_PATH):
+                return False, mt5.last_error()
     return True, None
 
 

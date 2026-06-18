@@ -119,6 +119,8 @@ export interface Promo {
   type: "percent" | "fixed";       // скидка в % или фикс. сумма (тенге)
   value: number;                   // 20 (%) или 5000 (₸)
   active: boolean;
+  partner?: string;                // имя партнёра (если это реферальный код)
+  commission?: number;             // % комиссии партнёру с оплаты (напр. 30)
 }
 
 export interface Lesson {

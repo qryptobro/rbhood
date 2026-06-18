@@ -12,6 +12,7 @@ const NAV = [
   { href: "/admin/analytics",   label: "Аналитика",      icon: "M3 3v18h18M7 16l4-4 4 4 5-6" },
   { href: "/admin/plans",       label: "Тарифы",         icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" },
   { href: "/admin/promos",      label: "Промокоды",      icon: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01" },
+  { href: "/admin/referrals",   label: "Партнёры",       icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
   { href: "/admin/mailing",     label: "Рассылка",       icon: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6" },
   { href: "/admin/auto-mailing",label: "Авторассылка",   icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" },
   { href: "/admin/ai-models",   label: "AI Модели",      icon: "M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1H0a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" },

@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const auth = require("../middleware/auth");
 const prisma = require("../lib/prisma");
+const referrals = require("../lib/referrals");
 
 // Промокоды лежат в админ-сторе (backend/data/store.json)
 const STORE_FILE = path.join(__dirname, "..", "data", "store.json");
@@ -123,6 +124,15 @@ router.post("/create", auth, async (req, res) => {
       console.error("apipay create:", r.status, r.data);
       return res.status(502).json({ error: r.data?.message || r.data?.error || "Не удалось создать счёт" });
     }
+    // если использован партнёрский промокод — запоминаем для начисления комиссии при оплате
+    if (promo) {
+      referrals.setPending(r.data.id, {
+        promo: String(promo.code).toUpperCase(),
+        partner: promo.partner || "",
+        commissionPct: Number(promo.commission) || 0,
+        amount,
+      });
+    }
     res.status(201).json({
       id: r.data.id,
       amount,
@@ -148,6 +158,7 @@ router.get("/:id/status", auth, async (req, res) => {
     const status = r.data.status; // pending | paid | cancelled | expired | error
     if (status === "paid" && plan) {
       await grantPlan(req.user.id, plan); // выдаём тариф залогиненному пользователю
+      try { referrals.credit(req.params.id); } catch { /* учёт не должен ломать оплату */ }
     }
     res.json({ status });
   } catch (e) {
@@ -174,6 +185,7 @@ router.post("/webhook", async (req, res) => {
     if (status === "paid") {
       const m = /^rbhood_u(\d+)_(MONTHLY|LIFETIME)_/.exec(ext);
       if (m) await grantPlan(Number(m[1]), m[2]);
+      try { referrals.credit(inv.id || payload.id); } catch { /* ignore */ }
     }
     res.json({ ok: true });
   } catch (e) {

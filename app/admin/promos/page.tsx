@@ -15,11 +15,17 @@ function PromoModal({
   const [type, setType]   = useState<"percent" | "fixed">(promo.type ?? "percent");
   const [value, setValue] = useState(String(promo.value ?? ""));
   const [active, setActive] = useState(promo.active ?? true);
+  const [partner, setPartner] = useState(promo.partner ?? "");
+  const [commission, setCommission] = useState(String(promo.commission ?? ""));
 
   const handleSave = () => {
     const v = Number(value);
     if (!code.trim() || !v || v <= 0) return;
-    onSave({ code: code.trim().toUpperCase(), type, value: v, active });
+    onSave({
+      code: code.trim().toUpperCase(), type, value: v, active,
+      partner: partner.trim(),
+      commission: Number(commission) || 0,
+    });
   };
 
   return (
@@ -66,6 +72,22 @@ function PromoModal({
           <input value={value} onChange={e => setValue(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
             placeholder={type === "percent" ? "20" : "5000"}
             className="w-full bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
+        </div>
+
+        {/* Партнёрский код (реферал) */}
+        <div className="rounded-xl border border-[#1e1e1e] p-3.5 space-y-3" style={{ background: "#161616" }}>
+          <div className="font-mono text-[10px] text-[#02B365] uppercase tracking-widest">Партнёр (реферал) — необязательно</div>
+          <div>
+            <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Имя партнёра</div>
+            <input value={partner} onChange={e => setPartner(e.target.value)} placeholder="Напр. Нурлан"
+              className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
+          </div>
+          <div>
+            <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Комиссия партнёру, %</div>
+            <input value={commission} onChange={e => setCommission(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" placeholder="30"
+              className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors placeholder:text-[#333]" />
+          </div>
+          <div className="font-mono text-[10px] text-[#444]">Заполни, если код принадлежит партнёру. Тогда с каждой оплаты по коду партнёру начисляется комиссия (видно в разделе «Партнёры»).</div>
         </div>
 
         {/* Active */}
@@ -137,8 +159,11 @@ export default function PromosPage() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-mono font-bold text-white tracking-wider truncate">{p.code}</div>
-              <div className="font-exo text-xs text-[#555]">{p.type === "percent" ? "Скидка в процентах" : "Фиксированная скидка"}</div>
+              <div className="font-mono font-bold text-white tracking-wider truncate flex items-center gap-2">
+                {p.code}
+                {p.partner && <span className="font-exo text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "#02B36518", color: "#02B365" }}>партнёр{p.commission ? ` ${p.commission}%` : ""}</span>}
+              </div>
+              <div className="font-exo text-xs text-[#555]">{p.partner ? `Партнёр: ${p.partner}` : (p.type === "percent" ? "Скидка в процентах" : "Фиксированная скидка")}</div>
             </div>
             <span className="font-orbitron font-bold text-[#02B365] text-base px-3 py-1 rounded-lg flex-shrink-0" style={{ background: "#02B3650d" }}>
               {fmtDiscount(p)}

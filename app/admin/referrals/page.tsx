@@ -6,12 +6,14 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 interface Row { code: string; partner: string; sales: number; revenue: number; commission: number; paidOut: number; owed: number }
 interface Data { rows: Row[]; totals: { sales: number; revenue: number; commission: number; owed: number } }
 interface Wd { id: number; userId: number; email: string; name: string; amount: number; card: string; status: string; requestedAt: number; paidAt: number | null }
+interface Partner { code: string; name: string; email: string; createdAt: number; sales: number; commission: number }
 
 const fmtKzt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
 
 export default function ReferralsPage() {
   const [data, setData] = useState<Data | null>(null);
   const [wds, setWds] = useState<Wd[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [err, setErr] = useState("");
 
   const load = () => {
@@ -26,6 +28,10 @@ export default function ReferralsPage() {
     fetch(`${API}/api/withdrawals`, { headers: h })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setWds(d.items || []); })
+      .catch(() => { /* ignore */ });
+    fetch(`${API}/api/referrals/partners`, { headers: h })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPartners(d.items || []); })
       .catch(() => { /* ignore */ });
   };
   useEffect(() => { load(); }, []);
@@ -68,6 +74,33 @@ export default function ReferralsPage() {
           </div>
         </div>
       )}
+
+      {/* Партнёры (создали промокод) */}
+      <div>
+        <div className="font-exo font-bold text-white text-sm mb-2">Партнёры <span className="font-mono text-[11px] text-[#555]">({partners.length})</span></div>
+        <div className="rounded-2xl border border-[#1a1a1a] overflow-hidden" style={{ background: "#111" }}>
+          <div className="grid grid-cols-[1.4fr_1.8fr_1fr_0.9fr_0.7fr_1fr] gap-3 px-5 py-2.5 border-b border-[#181818]" style={{ background: "#0d0d0d" }}>
+            {["Имя","Email","Код","Создан","Продаж","Комиссия"].map((h, i) => (
+              <span key={i} className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{h}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-[#141414]">
+            {partners.map(p => (
+              <div key={p.code} className="grid grid-cols-[1.4fr_1.8fr_1fr_0.9fr_0.7fr_1fr] gap-3 items-center px-5 py-3 hover:bg-[#141414] transition-colors">
+                <span className="font-exo text-sm text-white truncate">{p.name || "—"}</span>
+                <span className="font-mono text-[11px] text-[#888] truncate">{p.email}</span>
+                <span className="font-mono font-bold text-[#02B365] tracking-wider truncate">{p.code}</span>
+                <span className="font-mono text-[11px] text-[#555]">{new Date(p.createdAt).toLocaleDateString("ru-RU")}</span>
+                <span className="font-orbitron text-sm font-bold text-white">{p.sales}</span>
+                <span className="font-orbitron text-sm font-bold text-[#02B365]">{fmtKzt(p.commission)}</span>
+              </div>
+            ))}
+            {partners.length === 0 && (
+              <div className="px-5 py-8 text-center font-exo text-sm text-[#444]">Партнёры ещё не создавали промокоды</div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Запросы на вывод */}
       <div>

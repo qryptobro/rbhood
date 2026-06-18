@@ -50,4 +50,9 @@ function add({ code, email, name }) {
 
 const config = () => ({ discount: DISCOUNT, commission: COMMISSION, maxPerUser: MAX_PER_USER });
 
-module.exports = { findByCode, forEmail, countForEmail, add, config };
+// Все созданные партнёрами коды (для админки)
+function listAll() {
+  return read().items.slice().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+module.exports = { findByCode, forEmail, countForEmail, add, config, listAll };

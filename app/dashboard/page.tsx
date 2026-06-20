@@ -127,12 +127,15 @@ function isMarketOpen(tab: Tab): boolean {
 
 // ─── API types ────────────────────────────────────────────────────────────────
 interface TradingPlanEntry {
-  action: string;
-  entryMin: number | null;
-  entryMax: number | null;
+  action: string;                 // BUY_LIMIT | SELL_LIMIT | WAIT
+  entry: number | null;           // цена отложенного ордера
   stopLoss: number | null;
   takeProfit: number | null;
-  confidence: number;
+  rr: number | null;
+  validityHours: number | null;
+  winrate: number | null;         // исторический винрейт правила (бэктест)
+  trades: number;                 // размер выборки бэктеста
+  reason?: string;
 }
 
 interface APIResponse {
@@ -208,7 +211,7 @@ function apiToResult(api: APIResponse, asset: Asset, t: Record<string, string>):
     changePositive: api.priceChange24h >= 0,
     summary: api.technicalAnalysis,
     targets: [
-      { label: t["db_entry"],   price: `${fmt(plan.entryMin)} – ${fmt(plan.entryMax)}`, color: "#A1A1AA" },
+      { label: t["db_entry"],   price: fmt(plan.entry), color: "#A1A1AA" },
       { label: t["db_target1"], price: fmt(plan.takeProfit),  color: "#02B365" },
       { label: t["db_stop"],    price: fmt(plan.stopLoss),    color: "#EF4444" },
       { label: "Объём 24h",     price: fmtVol(api.vol24h),   color: "#6366F1" },
@@ -224,7 +227,7 @@ function apiToResult(api: APIResponse, asset: Asset, t: Record<string, string>):
       { name: "Context",      value: api.economicContext,   status: api.economicContext === "Bullish" ? "bull" : api.economicContext === "Bearish" ? "bear" : "neutral" },
       { name: "Vol 7d",       value: fmtVol(api.vol7d),    status: "neutral" },
       { name: "Vol 1m",       value: fmtVol(api.vol1m),    status: "neutral" },
-      { name: "Confidence",   value: `${plan.confidence}%`, status: plan.confidence >= 70 ? "bull" : plan.confidence >= 50 ? "neutral" : "bear" },
+      { name: "Винрейт",      value: plan.winrate == null ? "—" : `${plan.winrate}%`, status: plan.winrate != null && plan.winrate >= 55 ? "bull" : plan.winrate != null && plan.winrate >= 45 ? "neutral" : "bear" },
     ],
   };
 }
@@ -705,25 +708,30 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <PlanCard value={plan.action.replace(/_/g, " ")} label={t["res_trade_type"]} color={planActionColor} />
-            <PlanCard value={plan.entryMin == null ? "—" : `${pf(plan.entryMin)}–${pf(plan.entryMax)}`} label={t["res_entry_price"]} />
+            <PlanCard value={plan.action.replace(/_/g, " ")} label="Тип ордера" color={planActionColor} />
+            <PlanCard value={plan.entry == null ? "—" : pf(plan.entry)} label="Цена входа (отложка)" />
             <PlanCard value={pf(plan.stopLoss)} label={t["res_sl"]} color="#EF4444" />
             <PlanCard value={pf(plan.takeProfit)} label={t["res_tp"]} color="#02B365" />
           </div>
 
-          {/* Explanations + confidence accordion */}
+          {/* Доп. параметры отложенного ордера */}
+          {plan.action !== "WAIT" && (
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <PlanCard value={plan.rr == null ? "—" : `1:${plan.rr}`} label="Риск/прибыль" color="#6366F1" />
+              <PlanCard value={plan.winrate == null ? "—" : `${plan.winrate}%`} label={`Винрейт (бэктест, ${plan.trades} сделок)`} color={plan.winrate != null && plan.winrate >= 55 ? "#02B365" : plan.winrate != null && plan.winrate >= 45 ? "#F59E0B" : "#EF4444"} />
+              <PlanCard value={plan.validityHours == null ? "—" : `${plan.validityHours} ч`} label="Актуально" color="#fff" />
+            </div>
+          )}
+          {plan.reason && (
+            <div className="rounded-xl border border-[#1a1a1a] px-4 py-2.5 mb-3 font-exo text-sm text-[#888]" style={{ background: "#121212" }}>
+              {plan.action === "WAIT" ? "Ждать: " : "Логика: "}{plan.reason}
+            </div>
+          )}
+
+          {/* Объяснение */}
           <Accordion title={t["res_explanation"]}
             icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>}>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-[#444]">{t["res_confidence"].toUpperCase()}</span>
-                <div className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden max-w-[200px]">
-                  <div className="h-full rounded-full" style={{ width: `${plan.confidence}%`, background: plan.confidence >= 70 ? "#02B365" : plan.confidence >= 50 ? "#F59E0B" : "#EF4444" }} />
-                </div>
-                <span className="font-mono text-xs text-white">{plan.confidence}%</span>
-              </div>
-              <p>{apiData.explanation}</p>
-            </div>
+            <p>{apiData.explanation}</p>
           </Accordion>
 
           {/* ─── ГРАФИК из MT5-свечей ─── */}

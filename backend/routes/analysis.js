@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { incr } = require("../lib/usage");
 const { getMarketData, getCandles, calcRSI, calcVolumes } = require("../services/marketData");
 const { computeIndicators } = require("../services/indicators");
+const { buildPendingOrder } = require("../services/strategy");
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
 const { generateAnalysis } = require("../services/aiAnalysis");
@@ -61,10 +62,12 @@ router.post("/", async (req, res) => {
     // 2. Свечи + индикаторы по 3 торговым таймфреймам (5m/15m/4h)
     const tfData = {};      // индикаторы
     const candlesByTf = {}; // сырые свечи для отрисовки графика на фронте
+    const rawByTf = {};     // сырые свечи для стратегии (отложенные ордера)
     for (const [plan, tf] of Object.entries(PLAN_TF)) {
       try {
         const candles = await getCandles(symbol, tf, 200);
         tfData[plan] = computeIndicators(candles);
+        rawByTf[plan] = candles;
         // lightweight-charts: время в секундах
         candlesByTf[plan] = candles.map(c => ({
           time: Math.floor(c.time / 1000),
@@ -73,6 +76,7 @@ router.post("/", async (req, res) => {
       } catch (e) {
         console.warn(`Indicators ${plan}(${tf}) failed:`, e.message);
         tfData[plan] = null;
+        rawByTf[plan] = null;
         candlesByTf[plan] = null;
       }
     }
@@ -87,20 +91,17 @@ router.post("/", async (req, res) => {
       daily: dailyInd, tfData,
     });
 
-    // 6. Собираем торговый план: направление от Claude + ATR-уровни из расчёта (не выдуманные)
+    // 6. Торговый план = ОТЛОЖЕННЫЕ ОРДЕРА (BUY/SELL LIMIT) из стратегии + честный бэктест-винрейт.
+    //    Считается детерминированно из свечей MT5 (не выдумывается AI).
     const tradingPlan = {};
-    for (const plan of Object.keys(PLAN_TF)) {
-      const ind = tfData[plan];
-      const aiPlan = ai.plans?.[plan] || {};
-      if (!ind) {
-        tradingPlan[plan] = buildPlan("WAIT", { entry_min: null, entry_max: null }, 0);
-        continue;
-      }
-      // если Claude не дал действие — берём детерминированный bias из согласия индикаторов
-      const action = aiPlan.action || (ind.consensus.bias === "BUY" ? "BUY_LIMIT" : ind.consensus.bias === "SELL" ? "SELL_LIMIT" : "WAIT");
-      const confidence = aiPlan.confidence != null ? aiPlan.confidence : ind.consensus.agreement_pct;
-      tradingPlan[plan] = buildPlan(action, ind.levels, confidence);
+    for (const [plan, tf] of Object.entries(PLAN_TF)) {
+      tradingPlan[plan] = rawByTf[plan]
+        ? buildPendingOrder(rawByTf[plan], tf)
+        : { action: "WAIT", entry: null, stopLoss: null, takeProfit: null, rr: null, validityHours: null, winrate: null, trades: 0, reason: "Нет данных" };
     }
+    // Общий сигнал — по дневному плану (15m)
+    const dayAct = tradingPlan.dayTrader?.action;
+    const overallSignal = dayAct === "BUY_LIMIT" ? "BUY" : dayAct === "SELL_LIMIT" ? "SELL" : "HOLD";
 
     res.json({
       symbol,
@@ -111,7 +112,7 @@ router.post("/", async (req, res) => {
       stability,
       rsi: +rsi.toFixed(2),
       economicContext,
-      overallSignal: ai.overallSignal,
+      overallSignal,
 
       vol24h, vol7d, vol1m,
 

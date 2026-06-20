@@ -686,12 +686,6 @@ export default function DashboardPage() {
               value={apiData.economicContext === "Bullish" ? t["res_bullish"] : apiData.economicContext === "Bearish" ? t["res_bearish"] : t["res_neutral"]}
               valueColor={ctxColor} data={apiData.rsiHistory} color={ctxColor}
               desc={`RSI(14): ${apiData.rsi} · 24h: ${apiData.priceChange24h > 0 ? "+" : ""}${apiData.priceChange24h}% · ${t["res_market_stability"]} ${apiData.stability}/10`} />
-            <FigureCard title={t["res_vol24h"]} value={fmtVol(apiData.vol24h)} data={apiData.volumeHistory.slice(-12)} color="#5a6470"
-              desc={t["res_vol24h_desc"]} />
-            <FigureCard title={t["res_vol7d"]} value={fmtVol(apiData.vol7d)} data={apiData.volumeHistory.slice(-20)} color="#5a6470"
-              desc={t["res_vol7d_desc"]} />
-            <FigureCard title={t["res_vol1m"]} value={fmtVol(apiData.vol1m)} data={apiData.volumeHistory} color="#5a6470"
-              desc={t["res_vol1m_desc"]} />
           </div>
 
           {/* ─── ADAPTED TRADING PLAN ─── */}

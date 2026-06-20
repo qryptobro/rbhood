@@ -6,7 +6,7 @@ const { computeIndicators } = require("../services/indicators");
 const { buildPendingOrder } = require("../services/strategy");
 const { getEconomicCalendar } = require("../services/calendar");
 const { getNews } = require("../services/news");
-const { generateAnalysis } = require("../services/aiAnalysis");
+const { generateAnalysis, translateTitles } = require("../services/aiAnalysis");
 
 // Таймфрейм каждого плана
 const PLAN_TF = { scalper: "5m", dayTrader: "15m", swingTrader: "4h" };
@@ -84,6 +84,14 @@ router.post("/", async (req, res) => {
     // 3. Календарь + новости
     const calendar = await getEconomicCalendar(symbol);
     const news = await getNews(symbol, category);
+    // Переводим заголовки новостей под язык интерфейса (ru/kz)
+    const lng = lang || "ru";
+    if (lng !== "en" && Array.isArray(news) && news.length) {
+      try {
+        const titles = await translateTitles(news.map(n => n.title), lng);
+        news.forEach((n, i) => { if (titles[i]) n.title = titles[i]; });
+      } catch { /* оставляем оригинал */ }
+    }
 
     // 4. AI: получает ГОТОВЫЕ числа по каждому ТФ, решает направление + уверенность + объяснение
     const ai = await generateAnalysis({

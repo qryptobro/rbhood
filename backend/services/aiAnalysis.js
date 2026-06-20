@@ -144,4 +144,34 @@ function fallback(tfData, daily) {
   };
 }
 
-module.exports = { generateAnalysis };
+// Перевод заголовков новостей под язык интерфейса (с кэшем)
+const _trCache = new Map();
+async function translateTitles(titles, lang) {
+  if (!OPENROUTER_KEY || !Array.isArray(titles) || !titles.length || lang === "en") return titles;
+  const langName = lang === "kz" ? "Kazakh (қазақ тілі)" : "Russian (русский)";
+  const result = new Array(titles.length);
+  const todo = [];
+  titles.forEach((t, i) => {
+    const k = lang + "|" + t;
+    if (_trCache.has(k)) result[i] = _trCache.get(k);
+    else todo.push({ i, t });
+  });
+  if (todo.length) {
+    try {
+      const sys = `You are a translator. Translate each news headline to ${langName}. Keep tickers/names as-is. Return ONLY a JSON array of translated strings in the same order — no extra text.`;
+      const content = await callOpenRouter([{ role: "user", content: JSON.stringify(todo.map(x => x.t)) }], sys);
+      let arr = null;
+      try { arr = JSON.parse((content.match(/\[[\s\S]*\]/) || [content])[0]); } catch { arr = null; }
+      todo.forEach((x, j) => {
+        const tr = Array.isArray(arr) && arr[j] ? String(arr[j]) : x.t;
+        result[x.i] = tr;
+        _trCache.set(lang + "|" + x.t, tr);
+      });
+    } catch {
+      todo.forEach(x => { result[x.i] = x.t; });
+    }
+  }
+  return result;
+}
+
+module.exports = { generateAnalysis, translateTitles };

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ReactNode } from "react";
+import RefCapture from "./components/RefCapture";
 
 export const viewport: Viewport = {
   themeColor: "#080808",
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-full flex flex-col bg-[#0A0A0A] text-[#FAFAFA]">
+        <RefCapture />
         {children}
       </body>
     </html>

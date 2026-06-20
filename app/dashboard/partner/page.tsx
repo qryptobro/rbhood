@@ -133,19 +133,29 @@ export default function PartnerPage() {
           {me.codes.length === 0 && <div className="font-exo text-sm text-[#444] py-2">У вас пока нет промокодов — создайте первый выше.</div>}
           {me.codes.map(c => {
             const stat = me.stats.find(s => s.code === c.code);
+            const base = typeof window !== "undefined" ? window.location.origin : "https://ai.rbhood.kz";
+            const link = `${base}/?ref=${c.code}`;
             return (
-              <div key={c.code} className="flex items-center gap-3 rounded-xl border border-[#1a1a1a] px-4 py-3" style={{ background: "#161616" }}>
-                <div className="flex-1 min-w-0">
-                  <div className="font-mono font-bold text-white tracking-wider">{c.code}</div>
-                  <div className="font-exo text-[11px] text-[#555]">Скидка клиенту {c.discount} · ваша комиссия {c.commission}%</div>
+              <div key={c.code} className="rounded-xl border border-[#1a1a1a] px-4 py-3 space-y-2.5" style={{ background: "#161616" }}>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono font-bold text-white tracking-wider">{c.code}</div>
+                    <div className="font-exo text-[11px] text-[#555]">Скидка клиенту {c.discount} · ваша комиссия {c.commission}%</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-orbitron text-sm font-bold text-[#02B365]">{stat?.sales ?? 0} продаж</div>
+                    <div className="font-exo text-[11px] text-[#555]">{fmtKzt(stat?.commission ?? 0)}</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-orbitron text-sm font-bold text-[#02B365]">{stat?.sales ?? 0} продаж</div>
-                  <div className="font-exo text-[11px] text-[#555]">{fmtKzt(stat?.commission ?? 0)}</div>
+                {/* Реф-ссылка */}
+                <div className="flex items-center gap-2 rounded-lg border border-[#222] px-3 py-2" style={{ background: "#0d0d0d" }}>
+                  <span className="font-mono text-[11px] text-[#9ad5b8] truncate flex-1">{link}</span>
+                  <button onClick={() => copy(link)} className="flex items-center gap-1 px-2 py-1 rounded-md font-exo text-[11px] font-bold text-white" style={{ background: "#02B36520", color: "#02B365" }} title="Скопировать ссылку">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Копировать
+                  </button>
                 </div>
-                <button onClick={() => copy(c.code)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#666] hover:text-white hover:bg-[#1e1e1e] transition-all" title="Скопировать код">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                </button>
+                <div className="font-exo text-[10px] text-[#555]">Делитесь ссылкой — промокод применится автоматически на оплате.</div>
               </div>
             );
           })}

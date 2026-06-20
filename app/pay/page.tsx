@@ -41,12 +41,13 @@ function Checkout() {
 
   const total = promo ? promo.amount : plan.amount;
 
-  const applyPromo = async () => {
-    if (!promoCode.trim()) return;
+  const applyPromo = async (codeArg?: string) => {
+    const code = (codeArg ?? promoCode).trim();
+    if (!code) return;
     setPromoError(""); setPromoBusy(true);
     try {
       const token = localStorage.getItem("rbhood-token");
-      const r = await fetch(`${API}/api/payments/promo?code=${encodeURIComponent(promoCode.trim())}&plan=${plan.key}`, {
+      const r = await fetch(`${API}/api/payments/promo?code=${encodeURIComponent(code)}&plan=${plan.key}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json();
@@ -66,6 +67,14 @@ function Checkout() {
     const token = localStorage.getItem("rbhood-token");
     if (!token) { router.replace("/login"); return; }
   }, [router]);
+
+  // Авто-подстановка реф-кода из ссылки (?ref=КОД)
+  useEffect(() => {
+    let ref: string | null = null;
+    try { ref = localStorage.getItem("rbhood-ref"); } catch { /* ignore */ }
+    if (ref) { setPromoOpen(true); setPromoCode(ref); applyPromo(ref); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
@@ -201,7 +210,7 @@ function Checkout() {
                 <div className="flex gap-2">
                   <input value={promoCode} onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }} placeholder="Промокод"
                     className="flex-1 h-11 px-3.5 rounded-xl border border-[#1e1e1e] bg-[#111] text-white text-sm font-mono tracking-wider outline-none focus:border-[#02B365] transition-colors placeholder:text-[#444] placeholder:font-exo placeholder:tracking-normal" />
-                  <button type="button" onClick={applyPromo} disabled={promoBusy || !promoCode.trim()}
+                  <button type="button" onClick={() => applyPromo()} disabled={promoBusy || !promoCode.trim()}
                     className="px-5 h-11 rounded-xl font-exo font-semibold text-sm text-white border border-[#02B36540] hover:bg-[#02B36510] transition-all disabled:opacity-40" style={{ background: "#0a2a1a" }}>
                     {promoBusy ? "…" : "Применить"}
                   </button>

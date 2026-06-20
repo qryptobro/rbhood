@@ -26,6 +26,7 @@ if (process.env.DATABASE_URL) {
   app.use("/api/referrals",require("./routes/referrals"));
   app.use("/api/partner",  require("./routes/partner"));
   app.use("/api/withdrawals", require("./routes/withdrawals"));
+  app.use("/api/signals",  require("./routes/signals"));
 } else {
   console.warn("DATABASE_URL not set — auth/users routes disabled");
 }
@@ -37,3 +38,9 @@ app.use("/api/state",    require("./routes/state"));
 app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
 });
+
+// Фоновый генератор/резолвер сигналов (только в основном процессе на 4000)
+if (Number(PORT) === 4000) {
+  try { require("./services/signalScheduler").start(); }
+  catch (e) { console.warn("signal scheduler:", e.message); }
+}

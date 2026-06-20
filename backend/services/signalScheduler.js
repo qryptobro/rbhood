@@ -15,17 +15,27 @@ const ASSETS = [
   // Форекс/металлы
   ["XAUUSD","forex"],["XAGUSD","forex"],["EURUSD","forex"],["GBPUSD","forex"],["USDJPY","forex"],
   ["AUDUSD","forex"],["USDCHF","forex"],["NZDUSD","forex"],["USDCAD","forex"],["AUDJPY","forex"],
-  // Крипто
+  // Крипто (24/7)
   ["BTCUSDT","crypto"],["ETHUSDT","crypto"],["SOLUSDT","crypto"],["BNBUSDT","crypto"],["XRPUSDT","crypto"],
   ["ADAUSDT","crypto"],["DOGEUSDT","crypto"],["AVAXUSDT","crypto"],["DOTUSDT","crypto"],["LINKUSDT","crypto"],
-  // Акции
-  ["AAPL","stocks"],["TSLA","stocks"],["NVDA","stocks"],["MSFT","stocks"],["GOOGL","stocks"],
-  ["AMZN","stocks"],["META","stocks"],["NFLX","stocks"],["AMD","stocks"],["COIN","stocks"],
 ];
+
+// Форекс открыт: вс 22:00 UTC – пт 21:00 UTC. В выходные сигналы по форексу не генерим.
+function forexOpen() {
+  const now = new Date();
+  const day = now.getUTCDay();            // 0=вс, 6=сб
+  const tmin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  if (day === 6) return false;            // суббота
+  if (day === 0 && tmin < 22 * 60) return false; // вс до 22:00 UTC
+  if (day === 5 && tmin >= 21 * 60) return false; // пт после 21:00 UTC
+  return true;
+}
 
 // Сгенерировать новые сигналы (только winrate >= порога)
 async function generate() {
+  const fxOpen = forexOpen();
   for (const [symbol, category] of ASSETS) {
+    if (category === "forex" && !fxOpen) continue; // выходные — форекс не торгуется
     for (const tf of TFS) {
       if (signals.hasOpen(symbol, tf)) continue; // не дублируем открытый сигнал
       try {

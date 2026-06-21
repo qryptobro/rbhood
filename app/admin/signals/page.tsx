@@ -9,6 +9,7 @@ interface Signal {
   status: string; resultR: number | null;
 }
 interface Stats { total: number; open: number; expired: number; wins: number; losses: number; winrate: number | null; totalR: number }
+interface Cfg { minWinrate: number; minTrades: number }
 
 const STATUS_STYLE: Record<string, { c: string; bg: string; label: string }> = {
   open:    { c: "#F59E0B", bg: "#F59E0B15", label: "Открыт" },
@@ -19,16 +20,26 @@ const STATUS_STYLE: Record<string, { c: string; bg: string; label: string }> = {
 const TF_LABEL: Record<string, string> = { "5m": "Скальп 5m", "15m": "День 15m", "4h": "Свинг 4h" };
 
 export default function SignalsPage() {
-  const [data, setData] = useState<{ stats: Stats; items: Signal[] } | null>(null);
+  const [data, setData] = useState<{ stats: Stats; items: Signal[]; config: Cfg } | null>(null);
   const [err, setErr] = useState("");
   const [filter, setFilter] = useState("all");
+  const [minWr, setMinWr] = useState("");
+  const [minTr, setMinTr] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
 
-  useEffect(() => {
+  const load = () => {
     const token = localStorage.getItem("rbhood-token");
     fetch(`${API}/api/signals`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(async r => { if (!r.ok) { setErr(r.status === 403 ? "Доступ только для администратора" : "Не удалось загрузить"); return; } setData(await r.json()); })
+      .then(async r => { if (!r.ok) { setErr(r.status === 403 ? "Доступ только для администратора" : "Не удалось загрузить"); return; } const d = await r.json(); setData(d); setMinWr(String(d.config?.minWinrate ?? 60)); setMinTr(String(d.config?.minTrades ?? 15)); })
       .catch(() => setErr("Сервер недоступен"));
-  }, []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const saveConfig = async () => {
+    const token = localStorage.getItem("rbhood-token");
+    await fetch(`${API}/api/signals/config`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ minWinrate: Number(minWr), minTrades: Number(minTr) }) });
+    setSavedMsg("Сохранено"); setTimeout(() => setSavedMsg(""), 2000); load();
+  };
 
   const items = (data?.items || []).filter(s => filter === "all" || s.status === filter);
   const fmt = (n: number) => n == null ? "—" : (n > 100 ? n.toFixed(2) : n.toFixed(n > 1 ? 4 : 6));
@@ -37,9 +48,25 @@ export default function SignalsPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div>
         <h1 className="font-orbitron font-bold text-xl text-white tracking-wide">Сигналы</h1>
-        <p className="font-exo text-sm text-[#444] mt-0.5">Автогенерация по расписанию · только винрейт ≥ 60% · реальные исходы по MT5</p>
+        <p className="font-exo text-sm text-[#444] mt-0.5">Автогенерация по расписанию · только винрейт ≥ {data?.config?.minWinrate ?? 60}% · реальные исходы по MT5</p>
       </div>
       {err && <div className="font-exo text-sm text-[#EF4444] bg-[#EF444410] border border-[#EF444425] rounded-xl px-4 py-3">{err}</div>}
+
+      {/* Настройки порога */}
+      <div className="rounded-2xl border border-[#1a1a1a] p-4 flex flex-wrap items-end gap-4" style={{ background: "#111" }}>
+        <div>
+          <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Мин. винрейт бэктеста, %</div>
+          <input value={minWr} onChange={e => setMinWr(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
+            className="w-32 bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" />
+        </div>
+        <div>
+          <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Мин. сделок в бэктесте</div>
+          <input value={minTr} onChange={e => setMinTr(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
+            className="w-32 bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" />
+        </div>
+        <button onClick={saveConfig} className="px-5 py-2.5 rounded-xl font-exo font-bold text-sm text-white" style={{ background: "linear-gradient(90deg,#02B365,#19BB74)" }}>Сохранить</button>
+        {savedMsg && <span className="font-exo text-xs text-[#02B365]">{savedMsg}</span>}
+      </div>
 
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

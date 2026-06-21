@@ -1,14 +1,32 @@
 // signalScheduler.js — фоновая генерация и разрешение торговых сигналов.
 // Логируем только качественные сигналы (винрейт бэктеста >= порога), затем
 // сверяем их с реальными свечами MT5 и считаем фактический исход (TP/SL/expired).
+const fs = require("fs");
+const path = require("path");
 const { getCandles } = require("./marketData");
 const { buildPendingOrder } = require("./strategy");
 const signals = require("../lib/signals");
 
-const MIN_WINRATE = Number(process.env.SIGNAL_MIN_WINRATE || 60);
-const MIN_TRADES = Number(process.env.SIGNAL_MIN_TRADES || 15);
 const GEN_MS = Number(process.env.SIGNAL_GEN_MIN || 30) * 60e3;   // генерация раз в 30 мин
 const RES_MS = Number(process.env.SIGNAL_RES_MIN || 10) * 60e3;   // проверка исходов раз в 10 мин
+
+// Порог винрейта/выборки — настраивается из админки (хранится в файле)
+const CFG_FILE = path.join(__dirname, "..", "data", "signal-config.json");
+function getConfig() {
+  let c = {};
+  try { if (fs.existsSync(CFG_FILE)) c = JSON.parse(fs.readFileSync(CFG_FILE, "utf8")) || {}; } catch { /* ignore */ }
+  return {
+    minWinrate: c.minWinrate != null ? c.minWinrate : Number(process.env.SIGNAL_MIN_WINRATE || 60),
+    minTrades: c.minTrades != null ? c.minTrades : Number(process.env.SIGNAL_MIN_TRADES || 15),
+  };
+}
+function setConfig(patch) {
+  const c = getConfig();
+  if (patch.minWinrate != null) c.minWinrate = Math.max(0, Math.min(100, Number(patch.minWinrate)));
+  if (patch.minTrades != null) c.minTrades = Math.max(1, Number(patch.minTrades));
+  try { fs.writeFileSync(CFG_FILE, JSON.stringify(c), "utf8"); } catch { /* ignore */ }
+  return c;
+}
 
 const TFS = ["5m", "15m"]; // только скальп и дей-трейдер (свинг 4h не считаем)
 const ASSETS = [
@@ -34,6 +52,7 @@ function forexOpen() {
 // Сгенерировать новые сигналы (только winrate >= порога)
 async function generate() {
   const fxOpen = forexOpen();
+  const cfg = getConfig();
   for (const [symbol, category] of ASSETS) {
     if (category === "forex" && !fxOpen) continue; // выходные — форекс не торгуется
     for (const tf of TFS) {
@@ -43,8 +62,8 @@ async function generate() {
         if (!candles || candles.length < 60) continue;
         const p = buildPendingOrder(candles, tf);
         if (p.action === "WAIT") continue;
-        if (p.winrate == null || p.winrate < MIN_WINRATE) continue;
-        if (p.trades < MIN_TRADES) continue;
+        if (p.winrate == null || p.winrate < cfg.minWinrate) continue;
+        if (p.trades < cfg.minTrades) continue;
         signals.add({
           symbol, category, tf,
           action: p.action, entry: p.entry, sl: p.stopLoss, tp: p.takeProfit,
@@ -107,4 +126,4 @@ function start() {
   console.log(`Signal scheduler: gen every ${GEN_MS/60e3}m, resolve every ${RES_MS/60e3}m, min winrate ${MIN_WINRATE}%`);
 }
 
-module.exports = { start, generate, resolve };
+module.exports = { start, generate, resolve, getConfig, setConfig };

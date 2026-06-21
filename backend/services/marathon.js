@@ -8,7 +8,7 @@ const { buildPendingOrder } = require("./strategy");
 
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
 const CHAT = process.env.MARATHON_CHAT_ID || "";
-const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 10) * 60e3;
+const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3; // авто-анализ каждые 15 мин
 
 const DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DIR, "marathon.json");

@@ -10,7 +10,7 @@ const MIN_TRADES = Number(process.env.SIGNAL_MIN_TRADES || 15);
 const GEN_MS = Number(process.env.SIGNAL_GEN_MIN || 30) * 60e3;   // генерация раз в 30 мин
 const RES_MS = Number(process.env.SIGNAL_RES_MIN || 10) * 60e3;   // проверка исходов раз в 10 мин
 
-const TFS = ["5m", "15m", "4h"];
+const TFS = ["5m", "15m"]; // только скальп и дей-трейдер (свинг 4h не считаем)
 const ASSETS = [
   // Форекс/металлы
   ["XAUUSD","forex"],["XAGUSD","forex"],["EURUSD","forex"],["GBPUSD","forex"],["USDJPY","forex"],

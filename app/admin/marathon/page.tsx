@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-interface Cfg { minWinrate: number; minTrades: number; riskPct: number; start: number; target: number; market: string; tfs: string[] }
+interface Cfg { minWinrate: number; minTrades: number; riskPct: number; maxConcurrent: number; start: number; target: number; market: string; tfs: string[] }
 interface Trade { symbol: string; tf: string; action: string; status: string; pnl: number; closedAt: number }
 interface Active { symbol: string; tf: string; action: string; entry: number; sl: number; tp: number; lot: number; riskUsd: number; winrate: number; filled: boolean }
-interface State { deposit: number; status: string; active: Active | null; trades: Trade[]; config: Cfg; configured: boolean }
+interface State { deposit: number; status: string; actives: Active[]; trades: Trade[]; config: Cfg; configured: boolean }
 
 const fmt = (n: number) => "$" + (n ?? 0).toFixed(2);
 
@@ -68,12 +68,16 @@ export default function MarathonPage() {
         </div>
       </div>
 
-      {/* Активная сделка */}
-      {s.active && (
-        <div className="rounded-2xl border border-[#02B36530] p-5" style={{ background: "#02B3650a" }}>
-          <div className="font-exo font-bold text-white text-sm mb-2">Активная сделка</div>
-          <div className="font-mono text-sm text-white">{s.active.symbol} · {s.active.action.replace("_", " ")} · {s.active.tf} {s.active.filled ? "· ▶ в рынке" : "· ⏳ ждёт входа"}</div>
-          <div className="font-mono text-[11px] text-[#888] mt-1">Вход {s.active.entry} · SL {s.active.sl} · TP {s.active.tp} · лот {s.active.lot} · риск {fmt(s.active.riskUsd)} · WR {s.active.winrate}%</div>
+      {/* Активные сделки */}
+      {s.actives.length > 0 && (
+        <div className="rounded-2xl border border-[#02B36530] p-5 space-y-2" style={{ background: "#02B3650a" }}>
+          <div className="font-exo font-bold text-white text-sm">Активные сделки ({s.actives.length}/{cfg.maxConcurrent})</div>
+          {s.actives.map((a, i) => (
+            <div key={i} className="rounded-xl border border-[#1a1a1a] px-3 py-2" style={{ background: "#0d0d0d" }}>
+              <div className="font-mono text-sm text-white">{a.symbol} · {a.action.replace("_", " ")} · {a.tf} {a.filled ? "· ▶ в рынке" : "· ⏳ ждёт входа"}</div>
+              <div className="font-mono text-[11px] text-[#888] mt-0.5">Вход {a.entry} · SL {a.sl} · TP {a.tp} · лот {a.lot} · риск {fmt(a.riskUsd)} · WR {a.winrate}%</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -91,6 +95,7 @@ export default function MarathonPage() {
           {[
             { k: "minWinrate", l: "Мин. винрейт, %" },
             { k: "riskPct", l: "Риск на сделку, %" },
+            { k: "maxConcurrent", l: "Сделок одновременно" },
             { k: "minTrades", l: "Мин. сделок в бэктесте" },
             { k: "start", l: "Старт депозита, $" },
             { k: "target", l: "Цель, $" },

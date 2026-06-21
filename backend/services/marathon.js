@@ -8,7 +8,8 @@ const { buildPendingOrder } = require("./strategy");
 
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
 const CHAT = process.env.MARATHON_CHAT_ID || "";
-const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3; // авто-анализ каждые 15 мин
+const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3;      // поиск новых сигналов — раз в 15 мин
+const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 30) * 1000; // проверка TP/SL — каждые 30 сек (near real-time)
 
 const DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DIR, "marathon.json");
@@ -171,6 +172,7 @@ async function resolveAll(state) {
 }
 
 let busy = false;
+// Полный тик: проверка открытых сделок + поиск новых сигналов (раз в 15 мин)
 async function tick() {
   if (!TOKEN || !CHAT || busy) return;
   busy = true;
@@ -184,11 +186,21 @@ async function tick() {
   } finally { busy = false; }
 }
 
+// Быстрый тик: только проверка TP/SL открытых сделок (near real-time, каждые 30с)
+async function resolveTick() {
+  if (!TOKEN || !CHAT || busy) return;
+  const state = read();
+  if (state.status !== "running" || !state.actives.length) return;
+  busy = true;
+  try { await resolveAll(state); } finally { busy = false; }
+}
+
 function start() {
   if (!TOKEN || !CHAT) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
   setTimeout(() => tick().catch(() => {}), 30e3);
-  setInterval(() => tick().catch(() => {}), LOOP_MS);
-  console.log(`Marathon: on (every ${LOOP_MS/60e3}m)`);
+  setInterval(() => tick().catch(() => {}), LOOP_MS);          // новые сигналы — 15 мин
+  setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка сделок — 30 сек
+  console.log(`Marathon: on (signals every ${LOOP_MS/60e3}m, resolve every ${RESOLVE_MS/1000}s)`);
 }
 
 function getState() { return read(); }

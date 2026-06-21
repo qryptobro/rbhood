@@ -27,6 +27,7 @@ if (process.env.DATABASE_URL) {
   app.use("/api/partner",  require("./routes/partner"));
   app.use("/api/withdrawals", require("./routes/withdrawals"));
   app.use("/api/signals",  require("./routes/signals"));
+  app.use("/api/marathon", require("./routes/marathon"));
 } else {
   console.warn("DATABASE_URL not set — auth/users routes disabled");
 }
@@ -43,4 +44,6 @@ app.listen(PORT, () => {
 if (Number(PORT) === 4000) {
   try { require("./services/signalScheduler").start(); }
   catch (e) { console.warn("signal scheduler:", e.message); }
+  try { require("./services/marathon").start(); }
+  catch (e) { console.warn("marathon:", e.message); }
 }

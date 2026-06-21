@@ -76,10 +76,11 @@ async function resolve() {
       for (const c of after) {
         if (!filled) {
           if (c.time - s.createdCandleTime > validMs) { status = "expired"; break; }
-          if (s.action === "BUY_LIMIT" && c.low <= s.entry) { filled = true; filledAt = c.time; }
-          else if (s.action === "SELL_LIMIT" && c.high >= s.entry) { filled = true; filledAt = c.time; }
-          if (!filled) continue;
+          const hit = s.action === "BUY_LIMIT" ? c.low <= s.entry : c.high >= s.entry;
+          if (hit) { filled = true; filledAt = c.time; }
+          continue; // на свече входа TP/SL не проверяем (порядок внутри свечи неизвестен)
         }
+        // TP/SL — только на свечах ПОСЛЕ входа. SL проверяем первым (консервативно).
         if (s.action === "BUY_LIMIT") {
           if (c.low <= s.sl) { status = "loss"; break; }
           if (c.high >= s.tp) { status = "win"; break; }

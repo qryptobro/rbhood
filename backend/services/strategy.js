@@ -97,11 +97,11 @@ function simulate(candles, order, i, fwd) {
   for (let j = i + 1; j <= end; j++) {
     const c = candles[j];
     if (!filled) {
-      if (order.type === "BUY_LIMIT" && c.low <= order.entry) filled = true;
-      else if (order.type === "SELL_LIMIT" && c.high >= order.entry) filled = true;
-      if (!filled) continue;
+      const hit = order.type === "BUY_LIMIT" ? c.low <= order.entry : c.high >= order.entry;
+      if (hit) filled = true;
+      continue; // на свече входа TP/SL не проверяем (порядок внутри свечи неизвестен)
     }
-    // после заполнения проверяем TP/SL
+    // TP/SL — только на свечах ПОСЛЕ входа
     if (order.type === "BUY_LIMIT") {
       if (c.low <= order.stopLoss) return "loss";
       if (c.high >= order.takeProfit) return "win";

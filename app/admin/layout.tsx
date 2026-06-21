@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin",             label: "Дашборд",        icon: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
   { href: "/admin/users",       label: "Пользователи",   icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
   { href: "/admin/analytics",   label: "Аналитика",      icon: "M3 3v18h18M7 16l4-4 4 4 5-6" },
+  { href: "/admin/marathon",    label: "Марафон",        icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" },
   { href: "/admin/signals",     label: "Сигналы",        icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
   { href: "/admin/plans",       label: "Тарифы",         icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" },
   { href: "/admin/promos",      label: "Промокоды",      icon: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01" },

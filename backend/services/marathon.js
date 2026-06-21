@@ -1,6 +1,6 @@
-// marathon.js — виртуальный марафон $100 → $1000 по форекс-сигналам.
-// Отдельный Telegram-бот шлёт сигналы в группу, рискует 10% депозита на сделку,
-// отслеживает исход по свечам MT5 и обновляет депозит. Сделки идут по одной (компаундинг).
+// marathon.js — виртуальный марафон по сигналам с управлением из админки.
+// Отдельный Telegram-бот шлёт сигналы в группу, рискует % депозита на сделку,
+// отслеживает исход по свечам MT5 и обновляет депозит. Сделки по одной (компаундинг).
 const fs = require("fs");
 const path = require("path");
 const { getCandles } = require("./marketData");
@@ -8,12 +8,6 @@ const { buildPendingOrder } = require("./strategy");
 
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
 const CHAT = process.env.MARATHON_CHAT_ID || "";
-const TF = process.env.MARATHON_TF || "15m";
-const RISK = Number(process.env.MARATHON_RISK_PCT || 10) / 100;
-const START = Number(process.env.MARATHON_START || 100);
-const TARGET = Number(process.env.MARATHON_TARGET || 1000);
-const MIN_WR = Number(process.env.MARATHON_MIN_WINRATE || 60);
-const MIN_TR = Number(process.env.MARATHON_MIN_TRADES || 15);
 const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 10) * 60e3;
 
 const DIR = path.join(__dirname, "..", "data");
@@ -21,10 +15,26 @@ const FILE = path.join(DIR, "marathon.json");
 try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
 
 const FOREX = ["XAUUSD","XAGUSD","EURUSD","GBPUSD","USDJPY","AUDUSD","USDCHF","NZDUSD","USDCAD","AUDJPY"];
+const CRYPTO = ["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","XRPUSDT","ADAUSDT","DOGEUSDT","AVAXUSDT","DOTUSDT","LINKUSDT"];
+
+function defaultConfig() {
+  return {
+    minWinrate: Number(process.env.MARATHON_MIN_WINRATE || 50),
+    minTrades: Number(process.env.MARATHON_MIN_TRADES || 15),
+    riskPct: Number(process.env.MARATHON_RISK_PCT || 10),
+    start: Number(process.env.MARATHON_START || 100),
+    target: Number(process.env.MARATHON_TARGET || 1000),
+    market: process.env.MARATHON_MARKET || "crypto", // crypto | forex | both
+    tfs: ["5m", "15m"],
+  };
+}
 
 function read() {
-  try { if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { /* ignore */ }
-  return { deposit: START, status: "running", active: null, trades: [], startedAt: Date.now() };
+  let s = null;
+  try { if (fs.existsSync(FILE)) s = JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { /* ignore */ }
+  if (!s) s = { deposit: defaultConfig().start, status: "running", active: null, trades: [], startedAt: Date.now() };
+  if (!s.config) s.config = defaultConfig();
+  return s;
 }
 function write(s) { try { fs.writeFileSync(FILE, JSON.stringify(s), "utf8"); } catch { /* ignore */ } }
 
@@ -51,32 +61,44 @@ async function send(text) {
 function lotFor(symbol, entry, sl, riskUsd) {
   const dist = Math.abs(entry - sl);
   if (!dist) return 0.01;
-  let valuePerLot; // $ риска на 1.0 лот при этом расстоянии
-  if (symbol === "XAUUSD") valuePerLot = dist * 100;          // золото: 100 oz
-  else if (symbol === "XAGUSD") valuePerLot = dist * 5000;    // серебро: 5000 oz
-  else if (/USD$/.test(symbol)) valuePerLot = dist * 100000;  // XXXUSD (котировка в USD)
-  else valuePerLot = dist * 100000 / entry;                   // USDXXX / кроссы — приблизительно
+  let valuePerLot;
+  if (symbol.endsWith("USDT")) valuePerLot = dist;          // крипто: ~1 монета за лот
+  else if (symbol === "XAUUSD") valuePerLot = dist * 100;   // золото: 100 oz
+  else if (symbol === "XAGUSD") valuePerLot = dist * 5000;  // серебро: 5000 oz
+  else if (/USD$/.test(symbol)) valuePerLot = dist * 100000;// XXXUSD
+  else valuePerLot = dist * 100000 / entry;                 // USDXXX/кроссы — приблизительно
   const lot = riskUsd / valuePerLot;
   return Math.max(0.01, Math.round(lot * 100) / 100);
 }
 
+function universe(market) {
+  if (market === "forex") return FOREX.map(s => [s, "forex"]);
+  if (market === "both") return [...CRYPTO.map(s => [s, "crypto"]), ...FOREX.map(s => [s, "forex"])];
+  return CRYPTO.map(s => [s, "crypto"]); // crypto по умолчанию
+}
+
 async function generate(state) {
+  const cfg = state.config;
+  const fxOpen = forexOpen();
   let best = null;
-  for (const sym of FOREX) {
-    try {
-      const c = await getCandles(sym, TF, 200);
-      if (!c || c.length < 60) continue;
-      const p = buildPendingOrder(c, TF);
-      if (p.action === "WAIT" || p.winrate == null || p.winrate < MIN_WR || p.trades < MIN_TR) continue;
-      if (!best || p.winrate > best.p.winrate) best = { sym, p, lastTime: c[c.length - 1].time };
-    } catch { /* skip */ }
+  for (const [sym, cat] of universe(cfg.market)) {
+    if (cat === "forex" && !fxOpen) continue;
+    for (const tf of cfg.tfs) {
+      try {
+        const c = await getCandles(sym, tf, 200);
+        if (!c || c.length < 60) continue;
+        const p = buildPendingOrder(c, tf);
+        if (p.action === "WAIT" || p.winrate == null || p.winrate < cfg.minWinrate || p.trades < cfg.minTrades) continue;
+        if (!best || p.winrate > best.p.winrate) best = { sym, tf, p, lastTime: c[c.length - 1].time };
+      } catch { /* skip */ }
+    }
   }
   if (!best) return false;
 
-  const riskUsd = +(state.deposit * RISK).toFixed(2);
+  const riskUsd = +(state.deposit * cfg.riskPct / 100).toFixed(2);
   const lot = lotFor(best.sym, best.p.entry, best.p.stopLoss, riskUsd);
   state.active = {
-    symbol: best.sym, tf: TF, action: best.p.action, entry: best.p.entry, sl: best.p.stopLoss, tp: best.p.takeProfit,
+    symbol: best.sym, tf: best.tf, action: best.p.action, entry: best.p.entry, sl: best.p.stopLoss, tp: best.p.takeProfit,
     rr: best.p.rr, winrate: best.p.winrate, lot, riskUsd, depositAtOpen: state.deposit,
     createdCandleTime: best.lastTime, filled: false, filledAt: null, openedAt: Date.now(), validityHours: best.p.validityHours,
   };
@@ -84,11 +106,11 @@ async function generate(state) {
 
   const a = state.active;
   await send(
-    `📊 <b>${a.symbol}</b> · ${a.action.replace("_", " ")}\n` +
+    `📊 <b>${a.symbol}</b> · ${a.action.replace("_", " ")} · ${a.tf}\n` +
     `Вход: <b>${a.entry}</b>\nSL: ${a.sl} · TP: ${a.tp} (RR 1:${a.rr})\n` +
-    `Лот: ~<b>${a.lot}</b> · риск $${a.riskUsd} (${RISK * 100}%)\n` +
+    `Лот: ~<b>${a.lot}</b> · риск $${a.riskUsd} (${cfg.riskPct}%)\n` +
     `Винрейт (бэктест): ${a.winrate}%\n` +
-    `💰 Депозит: $${state.deposit.toFixed(2)} → цель $${TARGET}\n` +
+    `💰 Депозит: $${state.deposit.toFixed(2)} → цель $${cfg.target}\n` +
     `<i>Сигнал, не финансовая рекомендация.</i>`
   );
   return true;
@@ -106,7 +128,7 @@ async function resolveActive(state) {
       if (c.time - a.createdCandleTime > validMs) { status = "expired"; break; }
       const hit = a.action === "BUY_LIMIT" ? c.low <= a.entry : c.high >= a.entry;
       if (hit) { filled = true; filledAt = c.time; }
-      continue; // свеча входа — TP/SL не проверяем
+      continue;
     }
     if (a.action === "BUY_LIMIT") {
       if (c.low <= a.sl) { status = "loss"; break; }
@@ -134,12 +156,12 @@ async function resolveActive(state) {
   state.active = null;
   write(state);
 
-  const pct = (((state.deposit - START) / START) * 100).toFixed(0);
+  const pct = (((state.deposit - state.config.start) / state.config.start) * 100).toFixed(0);
   await send(`${emoji} <b>${a.symbol}</b> ${label}! ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}\n💰 Депозит: <b>$${state.deposit.toFixed(2)}</b> (${pct}% от старта)`);
 
-  if (state.deposit >= TARGET) {
+  if (state.deposit >= state.config.target) {
     state.status = "done"; write(state);
-    await send(`🎉 <b>Цель достигнута!</b> Депозит $${state.deposit.toFixed(2)} ≥ $${TARGET}. Марафон завершён.`);
+    await send(`🎉 <b>Цель достигнута!</b> Депозит $${state.deposit.toFixed(2)} ≥ $${state.config.target}. Марафон завершён.`);
   }
 }
 
@@ -151,8 +173,7 @@ async function tick() {
     const state = read();
     if (state.status !== "running") return;
     if (state.active) { await resolveActive(state); return; }
-    if (state.deposit >= TARGET) { state.status = "done"; write(state); await send(`🎉 Цель $${TARGET} достигнута!`); return; }
-    if (!forexOpen()) return;
+    if (state.deposit >= state.config.target) { state.status = "done"; write(state); await send(`🎉 Цель $${state.config.target} достигнута!`); return; }
     await generate(state);
   } finally { busy = false; }
 }
@@ -161,12 +182,26 @@ function start() {
   if (!TOKEN || !CHAT) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
   setTimeout(() => tick().catch(() => {}), 30e3);
   setInterval(() => tick().catch(() => {}), LOOP_MS);
-  console.log(`Marathon: on (${START}->${TARGET}, risk ${RISK*100}%, tf ${TF}, every ${LOOP_MS/60e3}m)`);
+  console.log(`Marathon: on (every ${LOOP_MS/60e3}m)`);
 }
 
 // Управление из админки
 function getState() { return read(); }
-function reset() { const s = { deposit: START, status: "running", active: null, trades: [], startedAt: Date.now() }; write(s); return s; }
+function reset() { const s = read(); s.deposit = s.config.start; s.status = "running"; s.active = null; s.trades = []; s.startedAt = Date.now(); write(s); return s; }
 function setStatus(st) { const s = read(); s.status = st; write(s); return s; }
+function setConfig(patch) {
+  const s = read();
+  const c = s.config;
+  if (patch.minWinrate != null) c.minWinrate = Math.max(0, Math.min(100, Number(patch.minWinrate)));
+  if (patch.minTrades != null) c.minTrades = Math.max(1, Number(patch.minTrades));
+  if (patch.riskPct != null) c.riskPct = Math.max(0.1, Math.min(100, Number(patch.riskPct)));
+  if (patch.start != null) c.start = Math.max(1, Number(patch.start));
+  if (patch.target != null) c.target = Math.max(1, Number(patch.target));
+  if (patch.market && ["crypto", "forex", "both"].includes(patch.market)) c.market = patch.market;
+  if (Array.isArray(patch.tfs) && patch.tfs.length) c.tfs = patch.tfs.filter(t => ["5m", "15m", "4h"].includes(t));
+  write(s);
+  return s;
+}
+const configured = () => !!(TOKEN && CHAT);
 
-module.exports = { start, tick, getState, reset, setStatus, START, TARGET };
+module.exports = { start, tick, getState, reset, setStatus, setConfig, configured };

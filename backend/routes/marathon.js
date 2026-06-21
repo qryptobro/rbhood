@@ -7,15 +7,13 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// GET /api/marathon — состояние марафона
+// GET /api/marathon — состояние + настройки
 router.get("/", auth, adminOnly, (req, res) => {
-  const s = marathon.getState();
-  res.json({ ...s, start: marathon.START, target: marathon.TARGET });
+  res.json({ ...marathon.getState(), configured: marathon.configured() });
 });
 
-// POST /api/marathon/reset — начать заново ($100)
+router.post("/config", auth, adminOnly, (req, res) => res.json(marathon.setConfig(req.body || {})));
 router.post("/reset", auth, adminOnly, (req, res) => res.json(marathon.reset()));
-// POST /api/marathon/stop|start — пауза / продолжить
 router.post("/stop", auth, adminOnly, (req, res) => res.json(marathon.setStatus("stopped")));
 router.post("/start", auth, adminOnly, (req, res) => res.json(marathon.setStatus("running")));
 

@@ -86,10 +86,11 @@ async function resolve() {
     const [symbol, tf] = key.split("|");
     let candles;
     try { candles = await getCandles(symbol, tf, 300); } catch { continue; }
-    if (!candles) continue;
+    if (!candles || candles.length < 2) continue;
+    const closed = candles.slice(0, -1); // только ЗАКРЫТЫЕ свечи (формирующуюся исключаем)
 
     for (const s of byKey[key]) {
-      const after = candles.filter(c => c.time > s.createdCandleTime);
+      const after = closed.filter(c => c.time > s.createdCandleTime);
       const validMs = (s.validityHours || 24) * 3600e3;
       let filled = !!s.filledAt, filledAt = s.filledAt, status = "open";
       let fillCT = s.filledCandleTime != null ? s.filledCandleTime : s.filledAt;

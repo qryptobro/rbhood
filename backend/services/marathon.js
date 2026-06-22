@@ -128,8 +128,9 @@ async function generate(state) {
 async function resolveAll(state) {
   for (const a of [...state.actives]) {
     let candles; try { candles = await getCandles(a.symbol, a.tf, 300); } catch { continue; }
-    if (!candles) continue;
-    const after = candles.filter(c => c.time > a.createdCandleTime);
+    if (!candles || candles.length < 2) continue;
+    const closed = candles.slice(0, -1); // только ЗАКРЫТЫЕ свечи (формирующуюся исключаем)
+    const after = closed.filter(c => c.time > a.createdCandleTime);
     const validMs = (a.validityHours || 24) * 3600e3;
     let filled = a.filled, filledAt = a.filledAt, status = "open";
     let fillCT = a.filledCandleTime != null ? a.filledCandleTime : a.filledAt;

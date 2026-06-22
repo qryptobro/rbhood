@@ -118,11 +118,16 @@ async function resolve() {
   }
 }
 
+// Общий лок: generate и resolve не должны пересекаться (оба пишут signals.json)
+let busy = false;
+async function runGen() { if (busy) return; busy = true; try { await generate(); } catch { /* ignore */ } finally { busy = false; } }
+async function runRes() { if (busy) return; busy = true; try { await resolve(); } catch { /* ignore */ } finally { busy = false; } }
+
 function start() {
-  setTimeout(() => generate().catch(() => {}), 20e3);  // первый прогон через 20с после старта
-  setTimeout(() => resolve().catch(() => {}), 40e3);
-  setInterval(() => generate().catch(() => {}), GEN_MS);
-  setInterval(() => resolve().catch(() => {}), RES_MS);
+  setTimeout(runGen, 20e3);  // первый прогон через 20с после старта
+  setTimeout(runRes, 40e3);
+  setInterval(runGen, GEN_MS);
+  setInterval(runRes, RES_MS);
   console.log(`Signal scheduler: gen every ${GEN_MS/60e3}m, resolve every ${RES_MS/60e3}m, min winrate ${getConfig().minWinrate}%`);
 }
 

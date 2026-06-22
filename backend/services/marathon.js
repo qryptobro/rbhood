@@ -184,6 +184,7 @@ async function tick() {
     if (state.status !== "running") return;
     await resolveAll(state);
     if (state.status !== "running") return;
+    if (state.deposit <= 0) { state.status = "done"; write(state); await send(`💀 Депозит обнулён ($${state.deposit.toFixed(2)}). Марафон остановлен.`); return; }
     if (state.deposit >= state.config.target) { state.status = "done"; write(state); await send(`🎉 Цель $${state.config.target} достигнута!`); return; }
     await generate(state);
   } finally { busy = false; }

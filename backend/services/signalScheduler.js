@@ -92,23 +92,21 @@ async function resolve() {
       const after = candles.filter(c => c.time > s.createdCandleTime);
       const validMs = (s.validityHours || 24) * 3600e3;
       let filled = !!s.filledAt, filledAt = s.filledAt, status = "open";
-      let fillCT = s.filledCandleTime != null ? s.filledCandleTime : s.filledAt; // время свечи входа
+      let fillCT = s.filledCandleTime != null ? s.filledCandleTime : s.filledAt;
+      const hitSL = (c) => s.action === "BUY_LIMIT" ? c.low <= s.sl : c.high >= s.sl;
+      const hitTP = (c) => s.action === "BUY_LIMIT" ? c.high >= s.tp : c.low <= s.tp;
       for (const c of after) {
         if (!filled) {
           if (c.time - s.createdCandleTime > validMs) { status = "expired"; break; }
           const hit = s.action === "BUY_LIMIT" ? c.low <= s.entry : c.high >= s.entry;
-          if (hit) { filled = true; filledAt = c.time; fillCT = c.time; }
-          continue; // на свече входа TP/SL не проверяем
+          if (!hit) continue;
+          filled = true; filledAt = c.time; fillCT = c.time;
+          if (hitSL(c)) { status = "loss"; break; } // свеча входа — только SL
+          continue;
         }
-        if (c.time <= fillCT) continue; // свечу входа (и её при повторных тиках) пропускаем
-        // TP/SL — только на свечах ПОСЛЕ входа. SL проверяем первым (консервативно).
-        if (s.action === "BUY_LIMIT") {
-          if (c.low <= s.sl) { status = "loss"; break; }
-          if (c.high >= s.tp) { status = "win"; break; }
-        } else {
-          if (c.high >= s.sl) { status = "loss"; break; }
-          if (c.low <= s.tp) { status = "win"; break; }
-        }
+        if (c.time === fillCT) { if (hitSL(c)) { status = "loss"; break; } continue; }
+        if (hitSL(c)) { status = "loss"; break; }
+        if (hitTP(c)) { status = "win"; break; }
       }
       if (status === "open" && filled !== !!s.filledAt) {
         signals.update(s.id, { filledAt, filledCandleTime: fillCT }); // зафиксировали факт входа

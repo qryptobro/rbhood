@@ -94,21 +94,20 @@ function buildOrderAt(candles, S, i) {
 function simulate(candles, order, i, fwd) {
   const end = Math.min(candles.length - 1, i + fwd);
   let filled = false;
+  const hitSL = (c) => order.type === "BUY_LIMIT" ? c.low <= order.stopLoss : c.high >= order.stopLoss;
+  const hitTP = (c) => order.type === "BUY_LIMIT" ? c.high >= order.takeProfit : c.low <= order.takeProfit;
   for (let j = i + 1; j <= end; j++) {
     const c = candles[j];
     if (!filled) {
       const hit = order.type === "BUY_LIMIT" ? c.low <= order.entry : c.high >= order.entry;
-      if (hit) filled = true;
-      continue; // на свече входа TP/SL не проверяем (порядок внутри свечи неизвестен)
+      if (!hit) continue;
+      filled = true;
+      if (hitSL(c)) return "loss"; // на свече входа — только SL (продолжение движения входа)
+      continue;
     }
-    // TP/SL — только на свечах ПОСЛЕ входа
-    if (order.type === "BUY_LIMIT") {
-      if (c.low <= order.stopLoss) return "loss";
-      if (c.high >= order.takeProfit) return "win";
-    } else {
-      if (c.high >= order.stopLoss) return "loss";
-      if (c.low <= order.takeProfit) return "win";
-    }
+    // свечи после входа — и SL, и TP (SL первым, консервативно)
+    if (hitSL(c)) return "loss";
+    if (hitTP(c)) return "win";
   }
   return null; // не заполнился или не разрешился в окне — не учитываем
 }

@@ -9,7 +9,7 @@ const { buildPendingOrder } = require("./strategy");
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
 const CHAT = process.env.MARATHON_CHAT_ID || "";
 const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3;      // поиск новых сигналов — раз в 15 мин
-const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 5) * 1000; // проверка цены — каждые 5 сек (секундные тики)
+const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 1) * 1000; // проверка цены — каждую 1 сек (секундные тики)
 
 const DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DIR, "marathon.json");
@@ -221,7 +221,7 @@ function start() {
   if (!TOKEN || !CHAT) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
   setTimeout(() => tick().catch(() => {}), 30e3);
   setInterval(() => tick().catch(() => {}), LOOP_MS);          // новые сигналы — 15 мин
-  setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка цены — каждые 5 сек
+  setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка цены — каждую 1 сек
   console.log(`Marathon: on (analysis every ${LOOP_MS/60e3}m, price-track every ${RESOLVE_MS/1000}s)`);
 }
 

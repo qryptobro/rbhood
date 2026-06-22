@@ -133,6 +133,7 @@ async function resolveAll(state) {
     const validMs = (a.validityHours || 24) * 3600e3;
     let filled = a.filled, filledAt = a.filledAt, status = "open";
     let fillCT = a.filledCandleTime != null ? a.filledCandleTime : a.filledAt;
+    let hitC = null; // свеча, задевшая TP/SL — для аудита
     const hitSL = (c) => a.action === "BUY_LIMIT" ? c.low <= a.sl : c.high >= a.sl;
     const hitTP = (c) => a.action === "BUY_LIMIT" ? c.high >= a.tp : c.low <= a.tp;
     for (const c of after) {
@@ -141,12 +142,12 @@ async function resolveAll(state) {
         const hit = a.action === "BUY_LIMIT" ? c.low <= a.entry : c.high >= a.entry;
         if (!hit) continue;
         filled = true; filledAt = c.time; fillCT = c.time;
-        if (hitSL(c)) { status = "loss"; break; } // на свече входа — только SL (продолжение движения)
+        if (hitSL(c)) { status = "loss"; hitC = c; break; } // на свече входа — только SL
         continue;
       }
-      if (c.time === fillCT) { if (hitSL(c)) { status = "loss"; break; } continue; } // свеча входа — только SL
-      if (hitSL(c)) { status = "loss"; break; }   // дальше — и SL, и TP (SL первым)
-      if (hitTP(c)) { status = "win"; break; }
+      if (c.time === fillCT) { if (hitSL(c)) { status = "loss"; hitC = c; break; } continue; } // свеча входа — только SL
+      if (hitSL(c)) { status = "loss"; hitC = c; break; }   // дальше — и SL, и TP (SL первым)
+      if (hitTP(c)) { status = "win"; hitC = c; break; }
     }
 
     if (status === "open") {
@@ -159,12 +160,16 @@ async function resolveAll(state) {
     else if (status === "loss") { pnl = -a.riskUsd; emoji = "❌"; label = "SL"; }
 
     state.deposit = +(state.deposit + pnl).toFixed(2);
-    state.trades.push({ ...a, status, pnl, closedAt: Date.now() });
+    state.trades.push({ ...a, status, pnl, closedAt: Date.now(), resolvedCandleTime: hitC ? hitC.time : null });
     state.actives = state.actives.filter(x => x !== a);
     write(state);
 
     const pct = (((state.deposit - state.config.start) / state.config.start) * 100).toFixed(0);
-    await send(`${emoji} <b>${a.symbol}</b> ${label}! ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}\n💰 Депозит: <b>$${state.deposit.toFixed(2)}</b> (${pct}% от старта)`);
+    // аудит: какая свеча и какой ценой задела уровень
+    const audit = hitC
+      ? `\n<i>свеча ${new Date(hitC.time).toLocaleString("ru-RU")} · H ${hitC.high} · L ${hitC.low}</i>`
+      : "";
+    await send(`${emoji} <b>${a.symbol}</b> ${label}! ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}\n💰 Депозит: <b>$${state.deposit.toFixed(2)}</b> (${pct}% от старта)${audit}`);
 
     if (state.deposit >= state.config.target) {
       state.status = "done"; write(state);

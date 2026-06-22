@@ -42,14 +42,24 @@ export default function SignalsPage() {
     setSavedMsg("Сохранено"); setTimeout(() => setSavedMsg(""), 2000); load();
   };
 
+  const resetJournal = async () => {
+    if (!confirm("Очистить весь журнал сигналов? Статистика начнётся с нуля.")) return;
+    const token = localStorage.getItem("rbhood-token");
+    await fetch(`${API}/api/signals/reset`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    load();
+  };
+
   const items = (data?.items || []).filter(s => filter === "all" || s.status === filter);
   const fmt = (n: number) => n == null ? "—" : (n > 100 ? n.toFixed(2) : n.toFixed(n > 1 ? 4 : 6));
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
-      <div>
-        <h1 className="font-orbitron font-bold text-xl text-white tracking-wide">Сигналы</h1>
-        <p className="font-exo text-sm text-[#444] mt-0.5">Автогенерация по расписанию · только винрейт ≥ {data?.config?.minWinrate ?? 60}% · реальные исходы по MT5</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-orbitron font-bold text-xl text-white tracking-wide">Сигналы</h1>
+          <p className="font-exo text-sm text-[#444] mt-0.5">Автогенерация по расписанию · винрейт ≥ {data?.config?.minWinrate ?? 50}% · реальные исходы по MT5</p>
+        </div>
+        <button onClick={resetJournal} className="shrink-0 px-4 py-2 rounded-xl font-exo font-bold text-sm text-[#EF4444] border border-[#EF444430]" style={{ background: "#EF444410" }}>↺ Сбросить журнал</button>
       </div>
       {err && <div className="font-exo text-sm text-[#EF4444] bg-[#EF444410] border border-[#EF444425] rounded-xl px-4 py-3">{err}</div>}
 

@@ -18,4 +18,10 @@ router.post("/config", auth, adminOnly, (req, res) => {
   res.json(scheduler.setConfig(req.body || {}));
 });
 
+// POST /api/signals/reset — очистить журнал (статистика с нуля)
+router.post("/reset", auth, adminOnly, (req, res) => {
+  signals.reset();
+  res.json({ ok: true });
+});
+
 module.exports = router;

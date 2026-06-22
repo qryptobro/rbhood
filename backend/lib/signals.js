@@ -29,6 +29,8 @@ function update(id, patch) {
   if (s) { Object.assign(s, patch); write(data); }
 }
 
+function reset() { write({ items: [] }); } // очистить весь журнал — статистика считается заново
+
 function stats() {
   const items = read().items;
   const resolved = items.filter(s => s.status === "win" || s.status === "loss");
@@ -45,4 +47,4 @@ function stats() {
   };
 }
 
-module.exports = { list, openSignals, hasOpen, add, update, stats };
+module.exports = { list, openSignals, hasOpen, add, update, stats, reset };

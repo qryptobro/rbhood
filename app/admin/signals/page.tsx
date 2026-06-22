@@ -5,7 +5,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface Signal {
   id: number; time: number; symbol: string; category: string; tf: string;
-  action: string; entry: number; sl: number; tp: number; rr: number; winrate: number; trades: number;
+  action: string; entry: number; sl: number; tp: number; rr: number; winrate: number; trades: number; expectancy: number | null;
   status: string; resultR: number | null;
 }
 interface Stats { total: number; open: number; expired: number; wins: number; losses: number; winrate: number | null; totalR: number }
@@ -104,17 +104,17 @@ export default function SignalsPage() {
       </div>
 
       <div className="rounded-2xl border border-[#1a1a1a] overflow-x-auto" style={{ background: "#111" }}>
-        <div className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.6fr_0.8fr_1fr] gap-3 px-4 py-2.5 border-b border-[#181818] min-w-[820px]" style={{ background: "#0d0d0d" }}>
-          {["Актив","ТФ","Тип","Вход","SL","TP","RR","Бэктест","Статус"].map((h,i) => (
+        <div className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.6fr_0.8fr_0.7fr_1fr] gap-3 px-4 py-2.5 border-b border-[#181818] min-w-[900px]" style={{ background: "#0d0d0d" }}>
+          {["Актив","ТФ","Тип","Вход","SL","TP","RR","Винрейт","Мат.ож","Статус"].map((h,i) => (
             <span key={i} className="font-mono text-[10px] text-[#333] uppercase tracking-widest">{h}</span>
           ))}
         </div>
-        <div className="divide-y divide-[#141414] min-w-[820px]">
+        <div className="divide-y divide-[#141414] min-w-[900px]">
           {items.map(s => {
             const st = STATUS_STYLE[s.status] || STATUS_STYLE.open;
             const buy = s.action === "BUY_LIMIT";
             return (
-              <div key={s.id} className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.6fr_0.8fr_1fr] gap-3 items-center px-4 py-2.5">
+              <div key={s.id} className="grid grid-cols-[1fr_1fr_0.8fr_1fr_1fr_1fr_0.6fr_0.8fr_0.7fr_1fr] gap-3 items-center px-4 py-2.5">
                 <span className="font-orbitron text-sm font-bold text-white truncate">{s.symbol}</span>
                 <span className="font-exo text-xs text-[#888]">{TF_LABEL[s.tf] || s.tf}</span>
                 <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded w-fit" style={{ color: buy ? "#02B365" : "#EF4444", background: (buy ? "#02B365" : "#EF4444") + "18" }}>{buy ? "BUY" : "SELL"}</span>
@@ -122,7 +122,8 @@ export default function SignalsPage() {
                 <span className="font-mono text-xs text-[#EF4444]">{fmt(s.sl)}</span>
                 <span className="font-mono text-xs text-[#02B365]">{fmt(s.tp)}</span>
                 <span className="font-mono text-xs text-[#6366F1]">1:{s.rr}</span>
-                <span className="font-mono text-[11px] text-[#888]">{s.winrate}%</span>
+                <span className="font-mono text-[11px] text-[#888]">{s.winrate}% <span className="text-[#444]">/{s.trades}</span></span>
+                <span className="font-mono text-[11px]" style={{ color: (s.expectancy ?? 0) > 0 ? "#02B365" : "#EF4444" }}>{s.expectancy == null ? "—" : `${s.expectancy > 0 ? "+" : ""}${s.expectancy}R`}</span>
                 <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded w-fit" style={{ color: st.c, background: st.bg }}>{st.label}{s.resultR != null && s.status !== "open" ? ` ${s.resultR > 0 ? "+" : ""}${s.resultR}R` : ""}</span>
               </div>
             );

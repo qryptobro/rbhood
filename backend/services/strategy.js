@@ -4,12 +4,17 @@
 
 const { EMA, ATR, ADX, BollingerBands, RSI } = require("technicalindicators");
 
-// окно актуальности сигнала и горизонт бэктеста по таймфрейму
+// окно актуальности сигнала + горизонты бэктеста по таймфрейму.
+// fillBars — сколько баров ждём активации лимита (≈ validity), holdBars — держим после входа.
 const TF_CFG = {
-  "5m":  { validityHours: 6,  fwd: 60 },   // ~5 часов вперёд на проверку
-  "15m": { validityHours: 18, fwd: 60 },
-  "4h":  { validityHours: 72, fwd: 40 },
+  "5m":  { validityHours: 6,  fillBars: 72, holdBars: 96 },
+  "15m": { validityHours: 18, fillBars: 72, holdBars: 96 },
+  "4h":  { validityHours: 72, fillBars: 18, holdBars: 30 },
 };
+
+// Трение на сделку: спред + проскальзывание, ~10% одного ATR на круг.
+// На винрейт не влияет, но честно снижает матожидание (средний R).
+const SPREAD_FRAC = 0.10;
 
 const round = (n, d = 6) => (n == null || Number.isNaN(n) ? null : Math.round(n * 10 ** d) / 10 ** d);
 const padFront = (arr, len) => Array(Math.max(0, len - arr.length)).fill(null).concat(arr);
@@ -90,42 +95,61 @@ function buildOrderAt(candles, S, i) {
   return { type, regime, entry, stopLoss, takeProfit, atr, rsi, adx, support, resistance, price };
 }
 
-// Симуляция одного ордера вперёд: заполнился ли лимит и что сработало раньше — TP или SL
-function simulate(candles, order, i, fwd) {
-  const end = Math.min(candles.length - 1, i + fwd);
-  let filled = false;
-  const hitSL = (c) => order.type === "BUY_LIMIT" ? c.low <= order.stopLoss : c.high >= order.stopLoss;
-  const hitTP = (c) => order.type === "BUY_LIMIT" ? c.high >= order.takeProfit : c.low <= order.takeProfit;
-  for (let j = i + 1; j <= end; j++) {
+// Симуляция одного ордера. Возвращает { res, exit }:
+//  res = "win" | "loss" | "nofill" (лимит не активировался) | "open" (не разрешился в окне)
+//  exit = индекс свечи, на которой всё закончилось (для перехода к следующей сделке без перекрытия)
+function simulate(candles, order, i, fillBars, holdBars) {
+  const N = candles.length;
+  const buy = order.type === "BUY_LIMIT";
+  const hitSL = (c) => buy ? c.low <= order.stopLoss : c.high >= order.stopLoss;
+  const hitTP = (c) => buy ? c.high >= order.takeProfit : c.low <= order.takeProfit;
+
+  // ── фаза 1: ждём активацию лимита (не дольше fillBars) ──
+  const fillEnd = Math.min(N - 1, i + fillBars);
+  let filledAt = -1;
+  for (let j = i + 1; j <= fillEnd; j++) {
     const c = candles[j];
-    if (!filled) {
-      const hit = order.type === "BUY_LIMIT" ? c.low <= order.entry : c.high >= order.entry;
-      if (!hit) continue;
-      filled = true;
-      if (hitSL(c)) return "loss"; // на свече входа — только SL (продолжение движения входа)
-      continue;
-    }
-    // свечи после входа — и SL, и TP (SL первым, консервативно)
-    if (hitSL(c)) return "loss";
-    if (hitTP(c)) return "win";
+    const hit = buy ? c.low <= order.entry : c.high >= order.entry;
+    if (!hit) continue;
+    filledAt = j;
+    if (hitSL(c)) return { res: "loss", exit: j }; // на свече входа — только SL (продолжение движения)
+    break;
   }
-  return null; // не заполнился или не разрешился в окне — не учитываем
+  if (filledAt < 0) return { res: "nofill", exit: fillEnd };
+
+  // ── фаза 2: держим до TP/SL (не дольше holdBars) ──
+  const holdEnd = Math.min(N - 1, filledAt + holdBars);
+  for (let k = filledAt + 1; k <= holdEnd; k++) {
+    const c = candles[k];
+    if (hitSL(c)) return { res: "loss", exit: k }; // при неоднозначности — SL раньше TP (консервативно)
+    if (hitTP(c)) return { res: "win", exit: k };
+  }
+  return { res: "open", exit: holdEnd };
 }
 
-// Мини-бэктест: прогон правила по истории, винрейт
-function backtest(candles, S, fwd) {
-  let wins = 0, losses = 0;
-  const start = 60; // прогрев индикаторов
-  for (let i = start; i < candles.length - 1; i++) {
+// Честный бэктест: НЕ перекрывающиеся сделки (одна позиция за раз, как на реальном депозите).
+// Считаем винрейт по решённым сделкам + матожидание в R после издержек.
+function backtest(candles, S, cfg) {
+  let wins = 0, losses = 0, sumR = 0;
+  let i = 60; // прогрев индикаторов
+  while (i < candles.length - 1) {
     const o = buildOrderAt(candles, S, i);
-    if (!o) continue;
-    const r = simulate(candles, o, i, fwd);
-    if (r === "win") wins++;
-    else if (r === "loss") losses++;
+    if (!o) { i++; continue; }
+    const sim = simulate(candles, o, i, cfg.fillBars, cfg.holdBars);
+    if (sim.res === "nofill") { i = Math.max(i + 1, sim.exit); continue; } // не вошли — ищем дальше
+    if (sim.res === "open")   { i = sim.exit + 1; continue; }              // не разрешилось — не считаем
+    // решённая независимая сделка
+    const risk = Math.abs(o.entry - o.stopLoss) || 1e-9;
+    const rr = Math.abs(o.takeProfit - o.entry) / risk;
+    const costR = (SPREAD_FRAC * o.atr) / risk; // издержки в долях R
+    if (sim.res === "win") { wins++;  sumR += rr - costR; }
+    else                   { losses++; sumR += -1 - costR; }
+    i = sim.exit + 1; // СЛЕДУЮЩУЮ сделку ищем только после закрытия текущей — без перекрытия
   }
   const trades = wins + losses;
   const winrate = trades ? Math.round((wins / trades) * 100) : null;
-  return { winrate, trades };
+  const expectancy = trades ? +(sumR / trades).toFixed(2) : null; // средний результат сделки в R (после издержек)
+  return { winrate, trades, expectancy };
 }
 
 const REGIME_RU = {
@@ -143,13 +167,13 @@ function buildPendingOrder(candles, tf) {
   if (!Array.isArray(candles) || candles.length < 60) {
     return { action: "WAIT", entry: null, stopLoss: null, takeProfit: null, rr: null, validityHours: null, winrate: null, trades: 0, reason: "Недостаточно данных" };
   }
-  const cfg = TF_CFG[tf] || { validityHours: 12, fwd: 50 };
+  const cfg = TF_CFG[tf] || { validityHours: 12, fillBars: 60, holdBars: 80 };
   const S = buildSeries(candles);
   const o = buildOrderAt(candles, S, candles.length - 1);
-  const bt = backtest(candles, S, cfg.fwd);
+  const bt = backtest(candles, S, cfg);
 
   if (!o) {
-    return { action: "WAIT", entry: null, stopLoss: null, takeProfit: null, rr: null, validityHours: cfg.validityHours, winrate: bt.winrate, trades: bt.trades, reason: "Нет чёткого сетапа" };
+    return { action: "WAIT", entry: null, stopLoss: null, takeProfit: null, rr: null, validityHours: cfg.validityHours, winrate: bt.winrate, trades: bt.trades, expectancy: bt.expectancy, reason: "Нет чёткого сетапа" };
   }
 
   const risk = Math.abs(o.entry - o.stopLoss);
@@ -164,8 +188,9 @@ function buildPendingOrder(candles, tf) {
     takeProfit: round(o.takeProfit),
     rr,
     validityHours: cfg.validityHours,
-    winrate: bt.winrate,            // исторический винрейт правила
-    trades: bt.trades,              // размер выборки бэктеста
+    winrate: bt.winrate,            // винрейт по независимым сделкам
+    trades: bt.trades,              // число независимых сделок в выборке
+    expectancy: bt.expectancy,      // средний результат сделки в R после издержек
     reason: REGIME_RU[o.regime] || "",
   };
 }

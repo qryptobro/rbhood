@@ -21,7 +21,7 @@ const CRYPTO = ["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","XRPUSDT","ADAUSDT","DOG
 function defaultConfig() {
   return {
     minWinrate: Number(process.env.MARATHON_MIN_WINRATE || 50),
-    minTrades: Number(process.env.MARATHON_MIN_TRADES || 15),
+    minTrades: Number(process.env.MARATHON_MIN_TRADES || 8),
     riskPct: Number(process.env.MARATHON_RISK_PCT || 10),
     maxConcurrent: Number(process.env.MARATHON_MAX_CONCURRENT || 3),
     start: Number(process.env.MARATHON_START || 100),
@@ -92,7 +92,7 @@ async function generate(state) {
     if (activeSyms.has(sym)) continue; // по этой паре уже есть сделка
     for (const tf of cfg.tfs) {
       try {
-        const c = await getCandles(sym, tf, 200);
+        const c = await getCandles(sym, tf, 600); // больше истории → больше независимых сделок в бэктесте
         if (!c || c.length < 60) continue;
         const p = buildPendingOrder(c, tf);
         if (p.action === "WAIT" || p.winrate == null || p.winrate < cfg.minWinrate || p.trades < cfg.minTrades) continue;
@@ -110,7 +110,7 @@ async function generate(state) {
     const lot = lotFor(best.sym, best.p.entry, best.p.stopLoss, riskUsd);
     const a = {
       symbol: best.sym, tf: best.tf, action: best.p.action, entry: best.p.entry, sl: best.p.stopLoss, tp: best.p.takeProfit,
-      rr: best.p.rr, winrate: best.p.winrate, trades: best.p.trades, regime: best.p.regime, reason: best.p.reason,
+      rr: best.p.rr, winrate: best.p.winrate, trades: best.p.trades, expectancy: best.p.expectancy, regime: best.p.regime, reason: best.p.reason,
       lot, riskUsd, depositAtOpen: state.deposit,
       createdCandleTime: best.lastTime, filled: false, filledAt: null, fillPrice: null, openedAt: Date.now(), validityHours: best.p.validityHours,
     };
@@ -119,7 +119,9 @@ async function generate(state) {
       `📊 <b>${a.symbol}</b> · ${a.action.replace("_", " ")} · ${a.tf}\n` +
       `Вход: <b>${a.entry}</b>\nSL: ${a.sl} · TP: ${a.tp} (RR 1:${a.rr})\n` +
       `Лот: ~<b>${a.lot}</b> · риск $${a.riskUsd} (${cfg.riskPct}%)\n` +
-      `📈 Бэктест: винрейт <b>${a.winrate}%</b> на ${a.trades} сделках${a.reason ? `\nРежим: ${a.reason}` : ""}\n` +
+      `📈 Бэктест: винрейт <b>${a.winrate}%</b> на ${a.trades} независ. сделках` +
+      `${a.expectancy != null ? ` · матожидание ${a.expectancy > 0 ? "+" : ""}${a.expectancy}R/сделку` : ""}` +
+      `${a.reason ? `\nРежим: ${a.reason}` : ""}\n` +
       `💰 Депозит: $${state.deposit.toFixed(2)} · сделок в работе: ${state.actives.length}/${cfg.maxConcurrent}\n` +
       `<i>Сигнал, не финансовая рекомендация.</i>`
     );

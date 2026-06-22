@@ -17,7 +17,7 @@ function getConfig() {
   try { if (fs.existsSync(CFG_FILE)) c = JSON.parse(fs.readFileSync(CFG_FILE, "utf8")) || {}; } catch { /* ignore */ }
   return {
     minWinrate: c.minWinrate != null ? c.minWinrate : Number(process.env.SIGNAL_MIN_WINRATE || 60),
-    minTrades: c.minTrades != null ? c.minTrades : Number(process.env.SIGNAL_MIN_TRADES || 15),
+    minTrades: c.minTrades != null ? c.minTrades : Number(process.env.SIGNAL_MIN_TRADES || 8),
   };
 }
 function setConfig(patch) {
@@ -58,7 +58,7 @@ async function generate() {
     for (const tf of TFS) {
       if (signals.hasOpen(symbol, tf)) continue; // не дублируем открытый сигнал
       try {
-        const candles = await getCandles(symbol, tf, 200);
+        const candles = await getCandles(symbol, tf, 600); // больше истории → больше независимых сделок
         if (!candles || candles.length < 60) continue;
         const p = buildPendingOrder(candles, tf);
         if (p.action === "WAIT") continue;
@@ -67,7 +67,7 @@ async function generate() {
         signals.add({
           symbol, category, tf,
           action: p.action, entry: p.entry, sl: p.stopLoss, tp: p.takeProfit,
-          rr: p.rr, winrate: p.winrate, trades: p.trades, validityHours: p.validityHours,
+          rr: p.rr, winrate: p.winrate, trades: p.trades, expectancy: p.expectancy, validityHours: p.validityHours,
           reason: p.reason,
           createdCandleTime: candles[candles.length - 1].time,
         });

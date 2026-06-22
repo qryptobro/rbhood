@@ -22,6 +22,7 @@ function defaultConfig() {
   return {
     minWinrate: Number(process.env.MARATHON_MIN_WINRATE || 50),
     minTrades: Number(process.env.MARATHON_MIN_TRADES || 8),
+    minExpectancy: Number(process.env.MARATHON_MIN_EXPECTANCY || 0),
     riskPct: Number(process.env.MARATHON_RISK_PCT || 10),
     maxConcurrent: Number(process.env.MARATHON_MAX_CONCURRENT || 3),
     start: Number(process.env.MARATHON_START || 100),
@@ -37,6 +38,7 @@ function read() {
   if (!s) s = { deposit: defaultConfig().start, status: "running", actives: [], trades: [], startedAt: Date.now() };
   if (!s.config) s.config = defaultConfig();
   if (s.config.maxConcurrent == null) s.config.maxConcurrent = 3;
+  if (s.config.minExpectancy == null) s.config.minExpectancy = 0;
   if (!Array.isArray(s.actives)) s.actives = s.active ? [s.active] : []; // миграция со старого single
   delete s.active;
   return s;
@@ -96,6 +98,7 @@ async function generate(state) {
         if (!c || c.length < 60) continue;
         const p = buildPendingOrder(c, tf);
         if (p.action === "WAIT" || p.winrate == null || p.winrate < cfg.minWinrate || p.trades < cfg.minTrades) continue;
+        if (p.expectancy == null || p.expectancy < cfg.minExpectancy) continue; // честный фильтр прибыльности
         cands.push({ sym, tf, p, lastTime: c[c.length - 1].time });
       } catch { /* skip */ }
     }
@@ -234,6 +237,7 @@ function setConfig(patch) {
   const s = read(); const c = s.config;
   if (patch.minWinrate != null) c.minWinrate = Math.max(0, Math.min(100, Number(patch.minWinrate)));
   if (patch.minTrades != null) c.minTrades = Math.max(1, Number(patch.minTrades));
+  if (patch.minExpectancy != null) c.minExpectancy = Math.max(-1, Math.min(3, Number(patch.minExpectancy)));
   if (patch.riskPct != null) c.riskPct = Math.max(0.1, Math.min(100, Number(patch.riskPct)));
   if (patch.maxConcurrent != null) c.maxConcurrent = Math.max(1, Math.min(10, Number(patch.maxConcurrent)));
   if (patch.start != null) c.start = Math.max(1, Number(patch.start));

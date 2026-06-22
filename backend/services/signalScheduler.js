@@ -16,14 +16,16 @@ function getConfig() {
   let c = {};
   try { if (fs.existsSync(CFG_FILE)) c = JSON.parse(fs.readFileSync(CFG_FILE, "utf8")) || {}; } catch { /* ignore */ }
   return {
-    minWinrate: c.minWinrate != null ? c.minWinrate : Number(process.env.SIGNAL_MIN_WINRATE || 60),
+    minWinrate: c.minWinrate != null ? c.minWinrate : Number(process.env.SIGNAL_MIN_WINRATE || 50),
     minTrades: c.minTrades != null ? c.minTrades : Number(process.env.SIGNAL_MIN_TRADES || 8),
+    minExpectancy: c.minExpectancy != null ? c.minExpectancy : Number(process.env.SIGNAL_MIN_EXPECTANCY || 0),
   };
 }
 function setConfig(patch) {
   const c = getConfig();
   if (patch.minWinrate != null) c.minWinrate = Math.max(0, Math.min(100, Number(patch.minWinrate)));
   if (patch.minTrades != null) c.minTrades = Math.max(1, Number(patch.minTrades));
+  if (patch.minExpectancy != null) c.minExpectancy = Math.max(-1, Math.min(3, Number(patch.minExpectancy)));
   try { fs.writeFileSync(CFG_FILE, JSON.stringify(c), "utf8"); } catch { /* ignore */ }
   return c;
 }
@@ -64,6 +66,7 @@ async function generate() {
         if (p.action === "WAIT") continue;
         if (p.winrate == null || p.winrate < cfg.minWinrate) continue;
         if (p.trades < cfg.minTrades) continue;
+        if (p.expectancy == null || p.expectancy < cfg.minExpectancy) continue; // честный фильтр прибыльности
         signals.add({
           symbol, category, tf,
           action: p.action, entry: p.entry, sl: p.stopLoss, tp: p.takeProfit,

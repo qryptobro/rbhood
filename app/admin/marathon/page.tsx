@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-interface Cfg { minWinrate: number; minTrades: number; riskPct: number; maxConcurrent: number; start: number; target: number; market: string; tfs: string[] }
+interface Cfg { minWinrate: number; minTrades: number; minExpectancy: number; riskPct: number; maxConcurrent: number; start: number; target: number; market: string; tfs: string[] }
 interface Trade { symbol: string; tf: string; action: string; status: string; pnl: number; closedAt: number }
 interface Active { symbol: string; tf: string; action: string; entry: number; sl: number; tp: number; lot: number; riskUsd: number; winrate: number; filled: boolean }
 interface State { deposit: number; status: string; actives: Active[]; trades: Trade[]; config: Cfg; configured: boolean }
@@ -97,6 +97,7 @@ export default function MarathonPage() {
             { k: "riskPct", l: "Риск на сделку, %" },
             { k: "maxConcurrent", l: "Сделок одновременно" },
             { k: "minTrades", l: "Мин. сделок в бэктесте" },
+            { k: "minExpectancy", l: "Мин. мат.ож, R" },
             { k: "start", l: "Старт депозита, $" },
             { k: "target", l: "Цель, $" },
           ].map(f => (

@@ -9,7 +9,7 @@ interface Signal {
   status: string; resultR: number | null;
 }
 interface Stats { total: number; open: number; expired: number; wins: number; losses: number; winrate: number | null; totalR: number }
-interface Cfg { minWinrate: number; minTrades: number }
+interface Cfg { minWinrate: number; minTrades: number; minExpectancy: number }
 
 const STATUS_STYLE: Record<string, { c: string; bg: string; label: string }> = {
   open:    { c: "#F59E0B", bg: "#F59E0B15", label: "Открыт" },
@@ -25,19 +25,20 @@ export default function SignalsPage() {
   const [filter, setFilter] = useState("all");
   const [minWr, setMinWr] = useState("");
   const [minTr, setMinTr] = useState("");
+  const [minExp, setMinExp] = useState("");
   const [savedMsg, setSavedMsg] = useState("");
 
   const load = () => {
     const token = localStorage.getItem("rbhood-token");
     fetch(`${API}/api/signals`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(async r => { if (!r.ok) { setErr(r.status === 403 ? "Доступ только для администратора" : "Не удалось загрузить"); return; } const d = await r.json(); setData(d); setMinWr(String(d.config?.minWinrate ?? 60)); setMinTr(String(d.config?.minTrades ?? 15)); })
+      .then(async r => { if (!r.ok) { setErr(r.status === 403 ? "Доступ только для администратора" : "Не удалось загрузить"); return; } const d = await r.json(); setData(d); setMinWr(String(d.config?.minWinrate ?? 50)); setMinTr(String(d.config?.minTrades ?? 8)); setMinExp(String(d.config?.minExpectancy ?? 0)); })
       .catch(() => setErr("Сервер недоступен"));
   };
   useEffect(() => { load(); }, []);
 
   const saveConfig = async () => {
     const token = localStorage.getItem("rbhood-token");
-    await fetch(`${API}/api/signals/config`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ minWinrate: Number(minWr), minTrades: Number(minTr) }) });
+    await fetch(`${API}/api/signals/config`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ minWinrate: Number(minWr), minTrades: Number(minTr), minExpectancy: Number(minExp) }) });
     setSavedMsg("Сохранено"); setTimeout(() => setSavedMsg(""), 2000); load();
   };
 
@@ -62,6 +63,11 @@ export default function SignalsPage() {
         <div>
           <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Мин. сделок в бэктесте</div>
           <input value={minTr} onChange={e => setMinTr(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric"
+            className="w-32 bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" />
+        </div>
+        <div>
+          <div className="font-mono text-[10px] text-[#444] uppercase tracking-widest mb-1.5">Мин. мат.ожидание, R</div>
+          <input value={minExp} onChange={e => setMinExp(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal"
             className="w-32 bg-[#161616] border border-[#1e1e1e] rounded-xl px-3 py-2.5 font-exo text-sm text-white outline-none focus:border-[#02B365] transition-colors" />
         </div>
         <button onClick={saveConfig} className="px-5 py-2.5 rounded-xl font-exo font-bold text-sm text-white" style={{ background: "linear-gradient(90deg,#02B365,#19BB74)" }}>Сохранить</button>

@@ -9,7 +9,7 @@ const { buildPendingOrder } = require("./strategy");
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
 const CHAT = process.env.MARATHON_CHAT_ID || "";
 const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3;      // поиск новых сигналов — раз в 15 мин
-const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 30) * 1000; // проверка TP/SL — каждые 30 сек (near real-time)
+const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 5) * 1000; // проверка цены — каждые 5 сек (секундные тики)
 
 const DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DIR, "marathon.json");
@@ -110,71 +110,83 @@ async function generate(state) {
     const lot = lotFor(best.sym, best.p.entry, best.p.stopLoss, riskUsd);
     const a = {
       symbol: best.sym, tf: best.tf, action: best.p.action, entry: best.p.entry, sl: best.p.stopLoss, tp: best.p.takeProfit,
-      rr: best.p.rr, winrate: best.p.winrate, lot, riskUsd, depositAtOpen: state.deposit,
-      createdCandleTime: best.lastTime, filled: false, filledAt: null, openedAt: Date.now(), validityHours: best.p.validityHours,
+      rr: best.p.rr, winrate: best.p.winrate, trades: best.p.trades, regime: best.p.regime, reason: best.p.reason,
+      lot, riskUsd, depositAtOpen: state.deposit,
+      createdCandleTime: best.lastTime, filled: false, filledAt: null, fillPrice: null, openedAt: Date.now(), validityHours: best.p.validityHours,
     };
     state.actives.push(a); write(state);
     await send(
       `📊 <b>${a.symbol}</b> · ${a.action.replace("_", " ")} · ${a.tf}\n` +
       `Вход: <b>${a.entry}</b>\nSL: ${a.sl} · TP: ${a.tp} (RR 1:${a.rr})\n` +
       `Лот: ~<b>${a.lot}</b> · риск $${a.riskUsd} (${cfg.riskPct}%)\n` +
-      `Винрейт (бэктест): ${a.winrate}%\n` +
+      `📈 Бэктест: винрейт <b>${a.winrate}%</b> на ${a.trades} сделках${a.reason ? `\nРежим: ${a.reason}` : ""}\n` +
       `💰 Депозит: $${state.deposit.toFixed(2)} · сделок в работе: ${state.actives.length}/${cfg.maxConcurrent}\n` +
       `<i>Сигнал, не финансовая рекомендация.</i>`
     );
   }
 }
 
+// Текущая рыночная цена = close формирующейся свечи (последний реальный тик).
+// Берём НЕ High/Low (это «края» свечи, куда мог сходить лишь фитиль), а именно
+// цену, по которой рынок торгуется прямо сейчас — её ни с чем не спутать.
+async function livePrice(symbol, tf) {
+  const c = await getCandles(symbol, tf, 3);
+  if (!c || !c.length) return null;
+  const last = c[c.length - 1];
+  return last && last.close != null ? last.close : null;
+}
+
+// Отслеживание сделок по ТЕКУЩЕЙ цене (секундные тики). Никаких High/Low —
+// фиксируем вход/TP/SL только когда реальная цена пересекла уровень.
 async function resolveAll(state) {
   for (const a of [...state.actives]) {
-    let candles; try { candles = await getCandles(a.symbol, a.tf, 300); } catch { continue; }
-    if (!candles || candles.length < 2) continue;
-    const closed = candles.slice(0, -1); // только ЗАКРЫТЫЕ свечи (формирующуюся исключаем)
-    const after = closed.filter(c => c.time > a.createdCandleTime);
+    let price; try { price = await livePrice(a.symbol, a.tf); } catch { continue; }
+    if (price == null) continue;
+
     const validMs = (a.validityHours || 24) * 3600e3;
-    let filled = a.filled, filledAt = a.filledAt, status = "open";
-    let fillCT = a.filledCandleTime != null ? a.filledCandleTime : a.filledAt;
-    let hitC = null; // свеча, задевшая TP/SL — для аудита
-    const hitSL = (c) => a.action === "BUY_LIMIT" ? c.low <= a.sl : c.high >= a.sl;
-    const hitTP = (c) => a.action === "BUY_LIMIT" ? c.high >= a.tp : c.low <= a.tp;
-    for (const c of after) {
-      if (!filled) {
-        if (c.time - a.createdCandleTime > validMs) { status = "expired"; break; }
-        const hit = a.action === "BUY_LIMIT" ? c.low <= a.entry : c.high >= a.entry;
-        if (!hit) continue;
-        filled = true; filledAt = c.time; fillCT = c.time;
-        if (hitSL(c)) { status = "loss"; hitC = c; break; } // на свече входа — только SL
+
+    // ── ещё не вошли: ждём, пока цена дойдёт до входа ──
+    if (!a.filled) {
+      if (Date.now() - a.openedAt > validMs) { // срок ордера истёк, не активировался
+        state.trades.push({ ...a, status: "expired", pnl: 0, closedAt: Date.now() });
+        state.actives = state.actives.filter(x => x !== a); write(state);
+        await send(`⏳ <b>${a.symbol}</b> ордер не активировался (истёк срок ${a.validityHours}ч). Депозит без изменений.`);
         continue;
       }
-      if (c.time === fillCT) { if (hitSL(c)) { status = "loss"; hitC = c; break; } continue; } // свеча входа — только SL
-      if (hitSL(c)) { status = "loss"; hitC = c; break; }   // дальше — и SL, и TP (SL первым)
-      if (hitTP(c)) { status = "win"; hitC = c; break; }
+      const reached = a.action === "BUY_LIMIT" ? price <= a.entry : price >= a.entry;
+      if (!reached) continue;
+      a.filled = true; a.filledAt = Date.now(); a.fillPrice = price; write(state);
+      await send(`▶️ <b>${a.symbol}</b> вход сработал по <b>${price}</b>. Ждём TP/SL…`);
+      continue; // на тике входа TP/SL не проверяем
     }
 
-    if (status === "open") {
-      if (filled !== a.filled) { a.filled = filled; a.filledAt = filledAt; a.filledCandleTime = fillCT; write(state); await send(`▶️ <b>${a.symbol}</b> ордер сработал (вход ${a.entry}). Ждём TP/SL…`); }
-      continue;
-    }
+    // ── в сделке: смотрим, куда пришла текущая цена ──
+    const hitSL = a.action === "BUY_LIMIT" ? price <= a.sl : price >= a.sl;
+    const hitTP = a.action === "BUY_LIMIT" ? price >= a.tp : price <= a.tp;
+    let status = null;
+    if (hitSL) status = "loss";       // SL приоритетнее (консервативно)
+    else if (hitTP) status = "win";
+    if (!status) continue;
 
-    let pnl = 0, emoji = "⏳", label = "не активировался";
+    let pnl, emoji, label;
     if (status === "win") { pnl = +(a.riskUsd * (a.rr || 2)).toFixed(2); emoji = "✅"; label = "TP"; }
-    else if (status === "loss") { pnl = -a.riskUsd; emoji = "❌"; label = "SL"; }
+    else { pnl = -a.riskUsd; emoji = "❌"; label = "SL"; }
 
     state.deposit = +(state.deposit + pnl).toFixed(2);
-    state.trades.push({ ...a, status, pnl, closedAt: Date.now(), resolvedCandleTime: hitC ? hitC.time : null });
-    state.actives = state.actives.filter(x => x !== a);
-    write(state);
+    state.trades.push({ ...a, status, pnl, closedAt: Date.now(), closePrice: price });
+    state.actives = state.actives.filter(x => x !== a); write(state);
 
     const pct = (((state.deposit - state.config.start) / state.config.start) * 100).toFixed(0);
-    // аудит: какая свеча и какой ценой задела уровень
-    const audit = hitC
-      ? `\n<i>свеча ${new Date(hitC.time).toLocaleString("ru-RU")} · H ${hitC.high} · L ${hitC.low}</i>`
-      : "";
-    await send(`${emoji} <b>${a.symbol}</b> ${label}! ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}\n💰 Депозит: <b>$${state.deposit.toFixed(2)}</b> (${pct}% от старта)${audit}`);
+    await send(`${emoji} <b>${a.symbol}</b> ${label} по <b>${price}</b>! ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}\n💰 Депозит: <b>$${state.deposit.toFixed(2)}</b> (${pct}% от старта)`);
 
     if (state.deposit >= state.config.target) {
       state.status = "done"; write(state);
       await send(`🎉 <b>Цель достигнута!</b> Депозит $${state.deposit.toFixed(2)} ≥ $${state.config.target}. Марафон завершён.`);
+      return;
+    }
+    if (state.deposit <= 0) {
+      state.status = "done"; write(state);
+      await send(`💀 Депозит обнулён ($${state.deposit.toFixed(2)}). Марафон остановлен.`);
       return;
     }
   }
@@ -196,7 +208,7 @@ async function tick() {
   } finally { busy = false; }
 }
 
-// Быстрый тик: только проверка TP/SL открытых сделок (near real-time, каждые 30с)
+// Быстрый тик: проверка открытых сделок по текущей цене (секундные тики)
 async function resolveTick() {
   if (!TOKEN || !CHAT || busy) return;
   const state = read();
@@ -209,8 +221,8 @@ function start() {
   if (!TOKEN || !CHAT) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
   setTimeout(() => tick().catch(() => {}), 30e3);
   setInterval(() => tick().catch(() => {}), LOOP_MS);          // новые сигналы — 15 мин
-  setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка сделок — 30 сек
-  console.log(`Marathon: on (signals every ${LOOP_MS/60e3}m, resolve every ${RESOLVE_MS/1000}s)`);
+  setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка цены — каждые 5 сек
+  console.log(`Marathon: on (analysis every ${LOOP_MS/60e3}m, price-track every ${RESOLVE_MS/1000}s)`);
 }
 
 function getState() { return read(); }

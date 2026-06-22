@@ -83,13 +83,14 @@ async function generate(state) {
   const cfg = state.config;
   if (state.actives.length >= cfg.maxConcurrent) return;
   const fxOpen = forexOpen();
-  const activeKeys = new Set(state.actives.map(a => a.symbol + "|" + a.tf));
+  // не более ОДНОЙ сделки на пару (независимо от ТФ)
+  const activeSyms = new Set(state.actives.map(a => a.symbol));
 
   const cands = [];
   for (const [sym, cat] of universe(cfg.market)) {
     if (cat === "forex" && !fxOpen) continue;
+    if (activeSyms.has(sym)) continue; // по этой паре уже есть сделка
     for (const tf of cfg.tfs) {
-      if (activeKeys.has(sym + "|" + tf)) continue;
       try {
         const c = await getCandles(sym, tf, 200);
         if (!c || c.length < 60) continue;
@@ -99,11 +100,12 @@ async function generate(state) {
       } catch { /* skip */ }
     }
   }
+  // лучший по винрейту; на одну пару — только один кандидат (берётся лучший ТФ)
   cands.sort((a, b) => b.p.winrate - a.p.winrate);
 
   for (const best of cands) {
     if (state.actives.length >= cfg.maxConcurrent) break;
-    if (state.actives.some(a => a.symbol === best.sym && a.tf === best.tf)) continue;
+    if (state.actives.some(a => a.symbol === best.sym)) continue; // пара уже занята
     const riskUsd = +(state.deposit * cfg.riskPct / 100).toFixed(2);
     const lot = lotFor(best.sym, best.p.entry, best.p.stopLoss, riskUsd);
     const a = {

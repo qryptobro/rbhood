@@ -92,13 +92,15 @@ async function resolve() {
       const after = candles.filter(c => c.time > s.createdCandleTime);
       const validMs = (s.validityHours || 24) * 3600e3;
       let filled = !!s.filledAt, filledAt = s.filledAt, status = "open";
+      let fillCT = s.filledCandleTime != null ? s.filledCandleTime : s.filledAt; // время свечи входа
       for (const c of after) {
         if (!filled) {
           if (c.time - s.createdCandleTime > validMs) { status = "expired"; break; }
           const hit = s.action === "BUY_LIMIT" ? c.low <= s.entry : c.high >= s.entry;
-          if (hit) { filled = true; filledAt = c.time; }
-          continue; // на свече входа TP/SL не проверяем (порядок внутри свечи неизвестен)
+          if (hit) { filled = true; filledAt = c.time; fillCT = c.time; }
+          continue; // на свече входа TP/SL не проверяем
         }
+        if (c.time <= fillCT) continue; // свечу входа (и её при повторных тиках) пропускаем
         // TP/SL — только на свечах ПОСЛЕ входа. SL проверяем первым (консервативно).
         if (s.action === "BUY_LIMIT") {
           if (c.low <= s.sl) { status = "loss"; break; }
@@ -109,10 +111,10 @@ async function resolve() {
         }
       }
       if (status === "open" && filled !== !!s.filledAt) {
-        signals.update(s.id, { filledAt }); // зафиксировали факт входа
+        signals.update(s.id, { filledAt, filledCandleTime: fillCT }); // зафиксировали факт входа
       } else if (status !== "open") {
         const resultR = status === "win" ? s.rr : status === "loss" ? -1 : 0;
-        signals.update(s.id, { status, filledAt, resolvedAt: Date.now(), resultR });
+        signals.update(s.id, { status, filledAt, filledCandleTime: fillCT, resolvedAt: Date.now(), resultR });
       }
     }
   }
@@ -123,7 +125,7 @@ function start() {
   setTimeout(() => resolve().catch(() => {}), 40e3);
   setInterval(() => generate().catch(() => {}), GEN_MS);
   setInterval(() => resolve().catch(() => {}), RES_MS);
-  console.log(`Signal scheduler: gen every ${GEN_MS/60e3}m, resolve every ${RES_MS/60e3}m, min winrate ${MIN_WINRATE}%`);
+  console.log(`Signal scheduler: gen every ${GEN_MS/60e3}m, resolve every ${RES_MS/60e3}m, min winrate ${getConfig().minWinrate}%`);
 }
 
 module.exports = { start, generate, resolve, getConfig, setConfig };

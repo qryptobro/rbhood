@@ -130,13 +130,15 @@ async function resolveAll(state) {
     const after = candles.filter(c => c.time > a.createdCandleTime);
     const validMs = (a.validityHours || 24) * 3600e3;
     let filled = a.filled, filledAt = a.filledAt, status = "open";
+    let fillCT = a.filledCandleTime != null ? a.filledCandleTime : a.filledAt; // время свечи входа
     for (const c of after) {
       if (!filled) {
         if (c.time - a.createdCandleTime > validMs) { status = "expired"; break; }
         const hit = a.action === "BUY_LIMIT" ? c.low <= a.entry : c.high >= a.entry;
-        if (hit) { filled = true; filledAt = c.time; }
+        if (hit) { filled = true; filledAt = c.time; fillCT = c.time; }
         continue;
       }
+      if (c.time <= fillCT) continue; // свечу входа (и её же при повторных тиках) не проверяем
       if (a.action === "BUY_LIMIT") {
         if (c.low <= a.sl) { status = "loss"; break; }
         if (c.high >= a.tp) { status = "win"; break; }
@@ -147,7 +149,7 @@ async function resolveAll(state) {
     }
 
     if (status === "open") {
-      if (filled !== a.filled) { a.filled = filled; a.filledAt = filledAt; write(state); await send(`▶️ <b>${a.symbol}</b> ордер сработал (вход ${a.entry}). Ждём TP/SL…`); }
+      if (filled !== a.filled) { a.filled = filled; a.filledAt = filledAt; a.filledCandleTime = fillCT; write(state); await send(`▶️ <b>${a.symbol}</b> ордер сработал (вход ${a.entry}). Ждём TP/SL…`); }
       continue;
     }
 

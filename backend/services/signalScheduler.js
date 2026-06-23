@@ -31,13 +31,12 @@ function setConfig(patch) {
 }
 
 const TFS = ["5m", "15m"]; // только скальп и дей-трейдер (свинг 4h не считаем)
+// Только форекс/металлы. Крипта в аналитике сигналов отключена.
+// В выходные форекс не торгуется — генерация по нему пропускается (forexOpen()).
 const ASSETS = [
-  // Форекс/металлы
   ["XAUUSD","forex"],["XAGUSD","forex"],["EURUSD","forex"],["GBPUSD","forex"],["USDJPY","forex"],
   ["AUDUSD","forex"],["USDCHF","forex"],["NZDUSD","forex"],["USDCAD","forex"],["AUDJPY","forex"],
-  // Крипто (24/7)
-  ["BTCUSDT","crypto"],["ETHUSDT","crypto"],["SOLUSDT","crypto"],["BNBUSDT","crypto"],["XRPUSDT","crypto"],
-  ["ADAUSDT","crypto"],["DOGEUSDT","crypto"],["AVAXUSDT","crypto"],["DOTUSDT","crypto"],["LINKUSDT","crypto"],
+  ["EURJPY","forex"],["GBPJPY","forex"],["EURGBP","forex"],["USDSGD","forex"],["CADJPY","forex"],
 ];
 
 // Форекс открыт: вс 22:00 UTC – пт 21:00 UTC. В выходные сигналы по форексу не генерим.

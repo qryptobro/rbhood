@@ -98,9 +98,13 @@ async function resolve() {
       let fillCT = s.filledCandleTime != null ? s.filledCandleTime : s.filledAt;
       const hitSL = (c) => s.action === "BUY_LIMIT" ? c.low <= s.sl : c.high >= s.sl;
       const hitTP = (c) => s.action === "BUY_LIMIT" ? c.high >= s.tp : c.low <= s.tp;
+      const risk = Math.abs(s.entry - s.sl) || 1e-9;
       for (const c of after) {
         if (!filled) {
           if (c.time - s.createdCandleTime > validMs) { status = "expired"; break; }
+          // цена ушла от входа дальше 1.5×риск без активации — отменяем рано
+          const ranAway = s.action === "BUY_LIMIT" ? c.close > s.entry + 1.5 * risk : c.close < s.entry - 1.5 * risk;
+          if (ranAway) { status = "expired"; break; }
           const hit = s.action === "BUY_LIMIT" ? c.low <= s.entry : c.high >= s.entry;
           if (!hit) continue;
           filled = true; filledAt = c.time; fillCT = c.time;

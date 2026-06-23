@@ -158,6 +158,15 @@ async function resolveAll(state) {
         await send(`⏳ <b>${a.symbol}</b> ордер не активировался (истёк срок ${a.validityHours}ч). Депозит без изменений.`);
         continue;
       }
+      // цена ушла от входа дальше 1.5×риск — движение пошло без нас, отменяем сразу
+      const risk = Math.abs(a.entry - a.sl) || 1e-9;
+      const ranAway = a.action === "BUY_LIMIT" ? price > a.entry + 1.5 * risk : price < a.entry - 1.5 * risk;
+      if (ranAway) {
+        state.trades.push({ ...a, status: "expired", pnl: 0, closedAt: Date.now() });
+        state.actives = state.actives.filter(x => x !== a); write(state);
+        await send(`🚫 <b>${a.symbol}</b> отменён: цена ушла от входа ${a.entry} без активации. Слот свободен.`);
+        continue;
+      }
       const reached = a.action === "BUY_LIMIT" ? price <= a.entry : price >= a.entry;
       if (!reached) continue;
       a.filled = true; a.filledAt = Date.now(); a.fillPrice = price; write(state);

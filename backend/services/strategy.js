@@ -86,6 +86,11 @@ function buildOrderAt(candles, S, i) {
     }
   }
 
+  // Вход не дальше 0.8 ATR от цены — иначе лимит «висит» далеко и редко активируется.
+  const maxDist = 0.8 * atr;
+  if (type === "BUY_LIMIT"  && price - entry > maxDist) entry = price - maxDist;
+  if (type === "SELL_LIMIT" && entry - price > maxDist) entry = price + maxDist;
+
   const slDist = 1.3 * atr;
   const tpDist = 2.6 * atr; // RR ~1:2
   let stopLoss, takeProfit;
@@ -106,14 +111,19 @@ function simulate(candles, order, i, fillBars, holdBars) {
 
   // ── фаза 1: ждём активацию лимита (не дольше fillBars) ──
   const fillEnd = Math.min(N - 1, i + fillBars);
+  const risk = Math.abs(order.entry - order.stopLoss) || 1e-9;
   let filledAt = -1;
   for (let j = i + 1; j <= fillEnd; j++) {
     const c = candles[j];
     const hit = buy ? c.low <= order.entry : c.high >= order.entry;
-    if (!hit) continue;
-    filledAt = j;
-    if (hitSL(c)) return { res: "loss", exit: j }; // на свече входа — только SL (продолжение движения)
-    break;
+    if (hit) {
+      filledAt = j;
+      if (hitSL(c)) return { res: "loss", exit: j }; // на свече входа — только SL (продолжение движения)
+      break;
+    }
+    // цена ушла от входа без активации (>1.5×риск) — отменяем, не ждём (как в лайве)
+    const ranAway = buy ? c.close > order.entry + 1.5 * risk : c.close < order.entry - 1.5 * risk;
+    if (ranAway) return { res: "nofill", exit: j };
   }
   if (filledAt < 0) return { res: "nofill", exit: fillEnd };
 

@@ -7,7 +7,8 @@ const { getCandles } = require("./marketData");
 const { buildPendingOrder } = require("./strategy");
 
 const TOKEN = process.env.MARATHON_BOT_TOKEN || "";
-const CHAT = process.env.MARATHON_CHAT_ID || "";
+// Можно указать несколько групп через запятую/пробел: MARATHON_CHAT_ID=-100111,-100222,-100333
+const CHATS = (process.env.MARATHON_CHAT_ID || "").split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
 const LOOP_MS = Number(process.env.MARATHON_LOOP_MIN || 15) * 60e3;      // поиск новых сигналов — раз в 15 мин
 const RESOLVE_MS = Number(process.env.MARATHON_RESOLVE_SEC || 1) * 1000; // проверка цены — каждую 1 сек (секундные тики)
 
@@ -54,13 +55,15 @@ function forexOpen() {
 }
 
 async function send(text) {
-  if (!TOKEN || !CHAT) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHAT, text, parse_mode: "HTML", disable_web_page_preview: true }),
-    });
-  } catch (e) { console.warn("marathon tg:", e.message); }
+  if (!TOKEN || !CHATS.length) return;
+  for (const chat of CHATS) { // одно и то же сообщение во все группы
+    try {
+      await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }),
+      });
+    } catch (e) { console.warn("marathon tg:", chat, e.message); }
+  }
 }
 
 function lotFor(symbol, entry, sl, riskUsd) {
@@ -209,7 +212,7 @@ async function resolveAll(state) {
 let busy = false;
 // Полный тик: проверка открытых сделок + поиск новых сигналов (раз в 15 мин)
 async function tick() {
-  if (!TOKEN || !CHAT || busy) return;
+  if (!TOKEN || !CHATS.length || busy) return;
   busy = true;
   try {
     const state = read();
@@ -224,7 +227,7 @@ async function tick() {
 
 // Быстрый тик: проверка открытых сделок по текущей цене (секундные тики)
 async function resolveTick() {
-  if (!TOKEN || !CHAT || busy) return;
+  if (!TOKEN || !CHATS.length || busy) return;
   const state = read();
   if (state.status !== "running" || !state.actives.length) return;
   busy = true;
@@ -232,11 +235,11 @@ async function resolveTick() {
 }
 
 function start() {
-  if (!TOKEN || !CHAT) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
+  if (!TOKEN || !CHATS.length) { console.log("Marathon: off (no MARATHON_BOT_TOKEN/CHAT)"); return; }
   setTimeout(() => tick().catch(() => {}), 30e3);
   setInterval(() => tick().catch(() => {}), LOOP_MS);          // новые сигналы — 15 мин
   setInterval(() => resolveTick().catch(() => {}), RESOLVE_MS); // проверка цены — каждую 1 сек
-  console.log(`Marathon: on (analysis every ${LOOP_MS/60e3}m, price-track every ${RESOLVE_MS/1000}s)`);
+  console.log(`Marathon: on (analysis every ${LOOP_MS/60e3}m, price-track every ${RESOLVE_MS/1000}s, groups: ${CHATS.length})`);
 }
 
 function getState() { return read(); }
@@ -255,6 +258,6 @@ function setConfig(patch) {
   if (Array.isArray(patch.tfs) && patch.tfs.length) c.tfs = patch.tfs.filter(t => ["5m", "15m", "4h"].includes(t));
   write(s); return s;
 }
-const configured = () => !!(TOKEN && CHAT);
+const configured = () => !!(TOKEN && CHATS.length);
 
 module.exports = { start, tick, getState, reset, setStatus, setConfig, configured };

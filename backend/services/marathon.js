@@ -129,7 +129,7 @@ async function generate(state) {
       `${a.expectancy != null ? ` · матожидание ${a.expectancy > 0 ? "+" : ""}${a.expectancy}R/сделку` : ""}` +
       `${a.reason ? `\nРежим: ${a.reason}` : ""}\n` +
       `💰 Депозит: $${state.deposit.toFixed(2)} · сделок в работе: ${state.actives.length}/${cfg.maxConcurrent}\n` +
-      `<i>Сигнал, не финансовая рекомендация.</i>`
+      `<i>Соблюдаем риск-менеджмент.</i>`
     );
   }
 }

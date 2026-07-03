@@ -3,10 +3,17 @@ const https = require("https");
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = "anthropic/claude-3-haiku";
 
-// Бесплатный Google Gemini (если задан GEMINI_API_KEY — используем его как основной)
+// Бесплатный Google Gemini (если задан GEMINI_API_KEY)
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const hasLLM = () => !!(GEMINI_KEY || OPENROUTER_KEY);
+
+// Бесплатный Groq (OpenAI-совместимый). Две модели: качественная 70B (1000/день)
+// и быстрая 8B (~14400/день) как перелив под большой объём.
+const GROQ_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL_HQ = process.env.GROQ_MODEL_HQ || "llama-3.3-70b-versatile";
+const GROQ_MODEL_FAST = process.env.GROQ_MODEL_FAST || "llama-3.1-8b-instant";
+
+const hasLLM = () => !!(GROQ_KEY || GEMINI_KEY || OPENROUTER_KEY);
 
 // Собрать текст из messages (content бывает строкой или массивом {type,text})
 function messagesToText(messages) {
@@ -48,10 +55,61 @@ function callGemini(messages, systemPrompt) {
   });
 }
 
-// Единая точка вызова LLM: Gemini (бесплатный) в приоритете, иначе OpenRouter
-function callLLM(messages, systemPrompt) {
-  if (GEMINI_KEY) return callGemini(messages, systemPrompt);
-  return callOpenRouter(messages, systemPrompt);
+// Groq — OpenAI-совместимый API. content приводим к строке.
+function callGroq(messages, systemPrompt, model) {
+  return new Promise((resolve, reject) => {
+    const msgs = [{ role: "system", content: systemPrompt }].concat(
+      messages.map(m => ({ role: m.role, content: typeof m.content === "string" ? m.content : messagesToText([m]) }))
+    );
+    const body = JSON.stringify({ model, max_tokens: 1800, messages: msgs });
+    const req = https.request({
+      hostname: "api.groq.com",
+      path: "/openai/v1/chat/completions",
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}`, "Content-Length": Buffer.byteLength(body) },
+    }, (res) => {
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => {
+        const data = Buffer.concat(chunks).toString("utf8");
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
+          resolve(parsed.choices?.[0]?.message?.content || "");
+        } catch { reject(new Error("Groq parse error: " + data)); }
+      });
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// Цепочка провайдеров: пробуем по порядку, при ошибке/лимите (429) — следующий.
+// Порядок: Groq 70B (качество) → Groq 8B (объём ~14.4k/день) → Gemini → OpenRouter.
+function buildChain() {
+  const steps = [];
+  if (GROQ_KEY) { steps.push(["groq", GROQ_MODEL_HQ]); steps.push(["groq", GROQ_MODEL_FAST]); }
+  if (GEMINI_KEY) steps.push(["gemini", GEMINI_MODEL]);
+  if (OPENROUTER_KEY) steps.push(["openrouter", MODEL]);
+  return steps;
+}
+
+async function callLLM(messages, systemPrompt) {
+  const steps = buildChain();
+  if (!steps.length) throw new Error("no LLM provider configured");
+  let lastErr;
+  for (const [provider, model] of steps) {
+    try {
+      if (provider === "groq") return await callGroq(messages, systemPrompt, model);
+      if (provider === "gemini") return await callGemini(messages, systemPrompt);
+      if (provider === "openrouter") return await callOpenRouter(messages, systemPrompt);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`LLM ${provider}/${model} failed: ${e.message} — пробую следующий`);
+    }
+  }
+  throw lastErr || new Error("all LLM providers failed");
 }
 
 function callOpenRouter(messages, systemPrompt) {

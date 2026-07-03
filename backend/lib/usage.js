@@ -1,18 +1,10 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
-// Учёт запросов анализа по дням и пользователям:
-// backend/data/usage.json -> { "YYYY-MM-DD": { "<userId>": count } }
+// Учёт запросов анализа по дням и пользователям (ключ "usage"):
+// { "YYYY-MM-DD": { "<userId>": count } }
 // (старый плоский формат { "<userId>": count } тоже поддерживается как «без даты»)
-const DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DIR, "usage.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
-
 function readUsage() {
-  try {
-    if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")) || {};
-  } catch { /* ignore */ }
-  return {};
+  return persist.getJSON("usage", {});
 }
 
 // Локальная дата сервера в формате YYYY-MM-DD
@@ -27,7 +19,7 @@ function incr(userId) {
   const day = today();
   if (typeof data[day] !== "object" || data[day] === null) data[day] = {};
   data[day][userId] = (data[day][userId] || 0) + 1;
-  try { fs.writeFileSync(FILE, JSON.stringify(data), "utf8"); } catch { /* ignore */ }
+  persist.setJSON("usage", data);
 }
 
 // Суммировать запросы по пользователям за период [from, to] (включительно, YYYY-MM-DD).

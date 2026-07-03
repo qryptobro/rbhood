@@ -1,14 +1,9 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
-// Запросы партнёров на вывод средств: backend/data/withdrawals.json
+// Запросы партнёров на вывод средств (ключ "withdrawals"):
 // { items: [ { id, userId, email, name, amount, card, status: "pending"|"paid", requestedAt, paidAt } ] }
-const DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DIR, "withdrawals.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
-
-const read = () => { try { if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")) || { items: [] }; } catch { /* ignore */ } return { items: [] }; };
-const write = (d) => { try { fs.writeFileSync(FILE, JSON.stringify(d), "utf8"); } catch { /* ignore */ } };
+const read = () => persist.getJSON("withdrawals", { items: [] });
+const write = (d) => persist.setJSON("withdrawals", d);
 
 function list() { return read().items.slice().sort((a, b) => b.requestedAt - a.requestedAt); }
 function listForUser(userId) { return list().filter(i => i.userId === userId); }

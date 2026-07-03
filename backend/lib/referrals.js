@@ -1,16 +1,13 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
-// Учёт партнёрских комиссий по промокодам.
-// pending.json   — счета с промокодом, ещё не оплаченные: { invoiceId: { promo, partner, commissionPct, amount } }
-// referrals.json — итог: { processed: {invoiceId:true}, codes: { CODE: { partner, sales, revenue, commission, paidOut, items:[] } } }
-const DIR = path.join(__dirname, "..", "data");
-const PENDING = path.join(DIR, "pay-pending.json");
-const REFS = path.join(DIR, "referrals.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
+// Учёт партнёрских комиссий по промокодам (ключи persist).
+// "pay-pending" — счета с промокодом, ещё не оплаченные: { invoiceId: { promo, partner, commissionPct, amount } }
+// "referrals"   — итог: { processed: {invoiceId:true}, codes: { CODE: { partner, sales, revenue, commission, paidOut, items:[] } } }
+const PENDING = "pay-pending";
+const REFS = "referrals";
 
-const read = (f, def) => { try { if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, "utf8")) || def; } catch { /* ignore */ } return def; };
-const write = (f, d) => { try { fs.writeFileSync(f, JSON.stringify(d), "utf8"); } catch { /* ignore */ } };
+const read = (key, def) => persist.getJSON(key, def);
+const write = (key, d) => persist.setJSON(key, d);
 
 // Зафиксировать «ожидающий» счёт с промокодом (при создании счёта Kaspi)
 function setPending(invoiceId, rec) {

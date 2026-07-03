@@ -1,16 +1,13 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
 // Уведомления в Telegram о новых оплатах.
 // Нужны env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const CHAT = process.env.TELEGRAM_CHAT_ID || "";
 
-const DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DIR, "notified.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
-const read = () => { try { if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")) || { ids: [] }; } catch { /* ignore */ } return { ids: [] }; };
-const write = (d) => { try { fs.writeFileSync(FILE, JSON.stringify(d), "utf8"); } catch { /* ignore */ } };
+// Идемпотентность уведомлений — ключ "notified": { ids: [...] }
+const read = () => persist.getJSON("notified", { ids: [] });
+const write = (d) => persist.setJSON("notified", d);
 
 async function send(text) {
   if (!TOKEN || !CHAT) return false;

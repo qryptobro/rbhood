@@ -1,22 +1,11 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
-// Лог устройств/IP по пользователю: backend/data/devices.json
-// { "<userId>": { "<ip>": { ua, count, first, last } } }
-const DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DIR, "devices.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
-
+// Лог устройств/IP по пользователю (ключ "devices"): { "<userId>": { "<ip>": { ua, count, first, last } } }
 const MAX_IPS = 50;            // максимум хранимых IP на пользователя
 const THROTTLE_MS = 10 * 60e3; // не чаще раза в 10 мин на тот же IP
 
-function read() {
-  try { if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")) || {}; } catch { /* ignore */ }
-  return {};
-}
-function write(data) {
-  try { fs.writeFileSync(FILE, JSON.stringify(data), "utf8"); } catch { /* ignore */ }
-}
+const read = () => persist.getJSON("devices", {});
+const write = (data) => persist.setJSON("devices", data);
 
 const ipFrom = (req) =>
   (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||

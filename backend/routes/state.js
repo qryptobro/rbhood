@@ -1,23 +1,12 @@
 const router = require("express").Router();
-const fs = require("fs");
-const path = require("path");
+const persist = require("../lib/persist");
 
-// Серверное хранилище админ-стора (инструменты, иконки, брокеры, отзывы и т.д.)
-// Лежит в backend/data/store.json — переживает перезагрузки и виден всем.
-const DATA_DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DATA_DIR, "store.json");
-try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch { /* ignore */ }
+// Серверное хранилище админ-стора (инструменты, иконки, брокеры, отзывы, промокоды и т.д.)
+// Ключ "store" в persist (Postgres в проде / файл локально).
 
 // GET /api/state — отдать сохранённый стор
 router.get("/", (req, res) => {
-  try {
-    if (fs.existsSync(FILE)) {
-      return res.json({ value: fs.readFileSync(FILE, "utf8") });
-    }
-  } catch (e) {
-    console.warn("state read:", e.message);
-  }
-  res.json({ value: null });
+  res.json({ value: persist.getRaw("store") });
 });
 
 // POST /api/state — сохранить стор (body: { value: "<json string>" })
@@ -27,7 +16,7 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "value (string) required" });
   }
   try {
-    fs.writeFileSync(FILE, value, "utf8");
+    persist.setRaw("store", value);
     res.json({ ok: true });
   } catch (e) {
     console.error("state write:", e.message);

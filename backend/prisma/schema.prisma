@@ -32,6 +32,14 @@ model Session {
   createdAt DateTime @default(now())
 }
 
+// Универсальное key-value хранилище (замена файлам backend/data/*.json,
+// чтобы бэкенд работал на хостах с временным диском, напр. Render).
+model KV {
+  key       String   @id
+  value     String   // сырой JSON-строкой
+  updatedAt DateTime @updatedAt
+}
+
 enum Plan {
   FREE
   MONTHLY

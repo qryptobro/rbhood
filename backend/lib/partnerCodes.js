@@ -1,19 +1,13 @@
-const fs = require("fs");
-const path = require("path");
+const persist = require("./persist");
 
-// Промокоды, созданные самими партнёрами. Условия фиксированы системой (не меняются партнёром).
-// backend/data/partner-codes.json -> { items: [ { code, email, name, createdAt } ] }
-const DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DIR, "partner-codes.json");
-try { fs.mkdirSync(DIR, { recursive: true }); } catch { /* ignore */ }
-
-// Фиксированные условия (можно поменять через env)
+// Промокоды, созданные самими партнёрами (ключ "partner-codes"): { items: [ { code, email, name, createdAt } ] }
+// Условия фиксированы системой (не меняются партнёром).
 const DISCOUNT = Number(process.env.PARTNER_DISCOUNT_PERCENT || 10);    // скидка клиенту, %
 const COMMISSION = Number(process.env.PARTNER_COMMISSION_PERCENT || 30); // комиссия партнёру, %
 const MAX_PER_USER = Number(process.env.PARTNER_MAX_CODES || 3);
 
-const read = () => { try { if (fs.existsSync(FILE)) return JSON.parse(fs.readFileSync(FILE, "utf8")) || { items: [] }; } catch { /* ignore */ } return { items: [] }; };
-const write = (d) => { try { fs.writeFileSync(FILE, JSON.stringify(d), "utf8"); } catch { /* ignore */ } };
+const read = () => persist.getJSON("partner-codes", { items: [] });
+const write = (d) => persist.setJSON("partner-codes", d);
 
 // Привести запись к виду промокода (как в админ-сторе)
 const toPromo = (it) => ({

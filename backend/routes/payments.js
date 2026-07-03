@@ -1,23 +1,17 @@
 const router = require("express").Router();
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 const auth = require("../middleware/auth");
 const prisma = require("../lib/prisma");
+const persist = require("../lib/persist");
 const referrals = require("../lib/referrals");
 const partnerCodes = require("../lib/partnerCodes");
 const notify = require("../lib/notify");
 
-// Промокоды лежат в админ-сторе (backend/data/store.json)
-const STORE_FILE = path.join(__dirname, "..", "data", "store.json");
-
+// Промокоды лежат в админ-сторе (ключ "store", поле state.promos)
 const readPromos = () => {
-  try {
-    const raw = fs.readFileSync(STORE_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    const promos = parsed?.state?.promos;
-    return Array.isArray(promos) ? promos : [];
-  } catch { return []; }
+  const parsed = persist.getJSON("store", null);
+  const promos = parsed?.state?.promos;
+  return Array.isArray(promos) ? promos : [];
 };
 
 // Найти активный промокод по коду (админ-стор + коды, созданные партнёрами)

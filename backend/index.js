@@ -36,8 +36,11 @@ app.use("/api/analysis", require("./routes/analysis"));
 app.use("/api/quotes",   require("./routes/quotes"));
 app.use("/api/state",    require("./routes/state"));
 
-app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+// Грузим key-value хранилища (Postgres в проде) ДО старта, затем слушаем порт
+require("./lib/persist").init().finally(() => {
+  app.listen(PORT, () => {
+    console.log(`Backend running on port ${PORT}`);
+  });
 });
 
 // Марафон и аналитика сигналов отключены (снижение нагрузки на MT5/LLM).

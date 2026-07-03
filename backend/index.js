@@ -40,10 +40,11 @@ app.listen(PORT, () => {
   console.log(`Backend running on port ${PORT}`);
 });
 
-// Фоновый генератор/резолвер сигналов (только в основном процессе на 4000)
-if (Number(PORT) === 4000) {
-  try { require("./services/signalScheduler").start(); }
-  catch (e) { console.warn("signal scheduler:", e.message); }
-  try { require("./services/marathon").start(); }
-  catch (e) { console.warn("marathon:", e.message); }
-}
+// Марафон и аналитика сигналов отключены (снижение нагрузки на MT5/LLM).
+// Чтобы вернуть — раскомментируй блок ниже.
+// if (Number(PORT) === 4000) {
+//   try { require("./services/signalScheduler").start(); }
+//   catch (e) { console.warn("signal scheduler:", e.message); }
+//   try { require("./services/marathon").start(); }
+//   catch (e) { console.warn("marathon:", e.message); }
+// }

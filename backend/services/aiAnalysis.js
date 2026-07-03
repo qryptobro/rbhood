@@ -5,7 +5,7 @@ const MODEL = "anthropic/claude-3-haiku";
 
 // Бесплатный Google Gemini (если задан GEMINI_API_KEY — используем его как основной)
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const hasLLM = () => !!(GEMINI_KEY || OPENROUTER_KEY);
 
 // Собрать текст из messages (content бывает строкой или массивом {type,text})

@@ -7,8 +7,9 @@ import { useI18n } from "./i18n";
 export default function Pricing({ paywall = false }: { paywall?: boolean }) {
   const { t } = useI18n();
   const { ref, inView } = useReveal();
-  // На лендинге CTA ведёт на регистрацию; на paywall — на страницу оплаты Kaspi
-  const hrefFor = (planKey: string) => (paywall ? `/pay?plan=${planKey}` : "/register");
+  // На лендинге CTA ведёт на регистрацию; на paywall — к менеджеру за доступом (Telegram).
+  const MANAGER_TG = "https://t.me/rbhoodai_support?text=" + encodeURIComponent("Хочу бесплатный доступ к платформе");
+  const hrefFor = (planKey: string) => (paywall ? MANAGER_TG : "/register");
 
   const plans = [
     {
@@ -94,7 +95,7 @@ export default function Pricing({ paywall = false }: { paywall?: boolean }) {
               </div>
 
               {/* CTA */}
-              <a href={plan.href} className="block text-center w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
+              <a href={plan.href} target={paywall ? "_blank" : undefined} rel={paywall ? "noopener noreferrer" : undefined} className="block text-center w-full py-3.5 rounded-xl font-exo font-semibold text-sm text-white transition-all duration-200 mb-8 hover:opacity-90 hover:-translate-y-px"
                 style={plan.featured ? {
                   background: "linear-gradient(90deg,#02B365,#19BB74)",
                   boxShadow: "0 4px 20px rgba(2,179,101,0.3)",

@@ -18,6 +18,12 @@ function Checkout() {
   const planParam = (params.get("plan") || "monthly").toLowerCase();
   const plan = PLANS[planParam] || PLANS.monthly;
 
+  // apipay отключён — доступ через менеджера. Прямой заход на /pay ведёт в Telegram.
+  // Чтобы вернуть оплату Kaspi позже — удали этот useEffect.
+  useEffect(() => {
+    window.location.replace("https://t.me/rbhoodai_support?text=" + encodeURIComponent("Хочу бесплатный доступ к платформе"));
+  }, []);
+
   const [phone, setPhone] = useState("+7");
 
   // Всегда держим префикс +7; принимаем максимум 10 цифр после

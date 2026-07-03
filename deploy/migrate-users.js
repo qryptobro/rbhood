@@ -6,8 +6,14 @@ const path = require("path");
 // @prisma/client лежит в backend/node_modules — резолвим оттуда
 const { PrismaClient } = require(path.join(__dirname, "..", "backend", "node_modules", "@prisma", "client"));
 
-const envTxt = fs.readFileSync(path.join(__dirname, "..", "backend", ".env"), "utf8");
-const OLD = (envTxt.match(/^DATABASE_URL=(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, "");
+// OLD: сначала из $env:OLD_DATABASE_URL, иначе из backend/.env
+let OLD = process.env.OLD_DATABASE_URL;
+if (!OLD) {
+  try {
+    const envTxt = fs.readFileSync(path.join(__dirname, "..", "backend", ".env"), "utf8");
+    OLD = (envTxt.match(/^DATABASE_URL=(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, "");
+  } catch { /* ignore */ }
+}
 const NEW = process.env.DATABASE_URL;
 
 if (!OLD || !NEW || OLD === NEW) {

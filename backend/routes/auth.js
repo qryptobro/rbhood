@@ -68,11 +68,15 @@ router.post("/google", async (req, res) => {
   if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ error: "Google sign-in not configured" });
 
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const p = ticket.getPayload();
+    // Проверяем ID-токен через публичный endpoint Google tokeninfo.
+    // Устойчиво на облачных IP: не требует загрузки сертификатов /oauth2/v1/certs,
+    // которые Google отдаёт Render'у с 403. Google сам валидирует подпись и срок.
+    const info = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!info.ok) throw new Error("tokeninfo " + info.status);
+    const p = await info.json();
+    if (p.aud !== process.env.GOOGLE_CLIENT_ID) throw new Error("audience mismatch");
+    if (p.email_verified !== true && p.email_verified !== "true") throw new Error("email not verified");
+    if (!p.email) throw new Error("no email in token");
     const email = p.email;
     const name = p.name || email.split("@")[0];
     const googleId = p.sub;

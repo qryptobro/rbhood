@@ -6,7 +6,8 @@
 // Предварительно: npx prisma db push (создаст таблицы, включая KV) на эту же базу.
 const fs = require("fs");
 const path = require("path");
-const { PrismaClient } = require("@prisma/client");
+// @prisma/client лежит в backend/node_modules — резолвим оттуда
+const { PrismaClient } = require(path.join(__dirname, "..", "backend", "node_modules", "@prisma", "client"));
 const prisma = new PrismaClient();
 
 const DATA = path.join(__dirname, "..", "backend", "data");

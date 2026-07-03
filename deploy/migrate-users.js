@@ -3,7 +3,8 @@
 // Запуск на старом сервере:  node ../deploy/migrate-users.js   (из папки backend)
 const fs = require("fs");
 const path = require("path");
-const { PrismaClient } = require("@prisma/client");
+// @prisma/client лежит в backend/node_modules — резолвим оттуда
+const { PrismaClient } = require(path.join(__dirname, "..", "backend", "node_modules", "@prisma", "client"));
 
 const envTxt = fs.readFileSync(path.join(__dirname, "..", "backend", ".env"), "utf8");
 const OLD = (envTxt.match(/^DATABASE_URL=(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, "");
@@ -14,8 +15,8 @@ if (!OLD || !NEW || OLD === NEW) {
   process.exit(1);
 }
 
-const oldDb = new PrismaClient({ datasources: { db: { url: OLD } } });
-const newDb = new PrismaClient({ datasources: { db: { url: NEW } } });
+const oldDb = new PrismaClient({ datasourceUrl: OLD });
+const newDb = new PrismaClient({ datasourceUrl: NEW });
 
 (async () => {
   const users = await oldDb.user.findMany();

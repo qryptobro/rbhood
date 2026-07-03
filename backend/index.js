@@ -7,7 +7,10 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+// CORS: FRONTEND_URL может быть списком доменов через запятую; если не задан — разрешаем все
+// (авторизация по Bearer-токену, не по cookie, поэтому это безопасно).
+const corsOrigins = (process.env.FRONTEND_URL || "").split(",").map(s => s.trim()).filter(Boolean);
+app.use(cors({ origin: corsOrigins.length ? corsOrigins : true }));
 // Вебхук apipay нуждается в СЫРОМ теле для проверки HMAC — до express.json
 app.use("/api/payments/webhook", express.raw({ type: "*/*" }));
 app.use(express.json({ limit: "12mb" })); // иконки/логотипы base64 крупные

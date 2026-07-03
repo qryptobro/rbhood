@@ -3,6 +3,57 @@ const https = require("https");
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = "anthropic/claude-3-haiku";
 
+// Бесплатный Google Gemini (если задан GEMINI_API_KEY — используем его как основной)
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const hasLLM = () => !!(GEMINI_KEY || OPENROUTER_KEY);
+
+// Собрать текст из messages (content бывает строкой или массивом {type,text})
+function messagesToText(messages) {
+  return messages.map(m => {
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) return m.content.map(p => p.text || "").join("\n");
+    return "";
+  }).join("\n");
+}
+
+function callGemini(messages, systemPrompt) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: messagesToText(messages) }] }],
+      generationConfig: { maxOutputTokens: 1800, temperature: 0.7 },
+    });
+    const req = https.request({
+      hostname: "generativelanguage.googleapis.com",
+      path: `/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+    }, (res) => {
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => {
+        const data = Buffer.concat(chunks).toString("utf8");
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
+          const text = (parsed.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+          resolve(text);
+        } catch { reject(new Error("Gemini parse error: " + data)); }
+      });
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// Единая точка вызова LLM: Gemini (бесплатный) в приоритете, иначе OpenRouter
+function callLLM(messages, systemPrompt) {
+  if (GEMINI_KEY) return callGemini(messages, systemPrompt);
+  return callOpenRouter(messages, systemPrompt);
+}
+
 function callOpenRouter(messages, systemPrompt) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
@@ -60,7 +111,7 @@ function tfSnapshot(ind) {
 }
 
 async function generateAnalysis({ symbol, category, lang, daily, tfData }) {
-  if (!OPENROUTER_KEY) {
+  if (!hasLLM()) {
     return fallback(tfData, daily);
   }
 
@@ -111,13 +162,13 @@ Rules:
   });
 
   try {
-    const raw = await callOpenRouter([{ role: "user", content }], system);
+    const raw = await callLLM([{ role: "user", content }], system);
     const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     const m = cleaned.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("No JSON: " + raw.slice(0, 200));
     return JSON.parse(m[0]);
   } catch (err) {
-    console.error("OpenRouter error:", err.message);
+    console.error("LLM error:", err.message);
     return fallback(tfData, daily);
   }
 }
@@ -147,7 +198,7 @@ function fallback(tfData, daily) {
 // Перевод заголовков новостей под язык интерфейса (с кэшем)
 const _trCache = new Map();
 async function translateTitles(titles, lang) {
-  if (!OPENROUTER_KEY || !Array.isArray(titles) || !titles.length || lang === "en") return titles;
+  if (!hasLLM() || !Array.isArray(titles) || !titles.length || lang === "en") return titles;
   const langName = lang === "kz" ? "Kazakh (қазақ тілі)" : "Russian (русский)";
   const result = new Array(titles.length);
   const todo = [];
@@ -159,7 +210,7 @@ async function translateTitles(titles, lang) {
   if (todo.length) {
     try {
       const sys = `You are a translator. Translate each news headline to ${langName}. Keep tickers/names as-is. Return ONLY a JSON array of translated strings in the same order — no extra text.`;
-      const content = await callOpenRouter([{ role: "user", content: JSON.stringify(todo.map(x => x.t)) }], sys);
+      const content = await callLLM([{ role: "user", content: JSON.stringify(todo.map(x => x.t)) }], sys);
       let arr = null;
       try { arr = JSON.parse((content.match(/\[[\s\S]*\]/) || [content])[0]); } catch { arr = null; }
       todo.forEach((x, j) => {

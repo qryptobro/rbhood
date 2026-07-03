@@ -1,0 +1,32 @@
+// Перенос пользователей из старой БД в новую (Neon) с сохранением id.
+// OLD берётся из backend/.env (текущая база), NEW — из process.env.DATABASE_URL (ты выставил Neon).
+// Запуск на старом сервере:  node ../deploy/migrate-users.js   (из папки backend)
+const fs = require("fs");
+const path = require("path");
+const { PrismaClient } = require("@prisma/client");
+
+const envTxt = fs.readFileSync(path.join(__dirname, "..", "backend", ".env"), "utf8");
+const OLD = (envTxt.match(/^DATABASE_URL=(.+)$/m) || [])[1]?.trim().replace(/^["']|["']$/g, "");
+const NEW = process.env.DATABASE_URL;
+
+if (!OLD || !NEW || OLD === NEW) {
+  console.error("Нужно: OLD (DATABASE_URL в backend/.env) и NEW ($env:DATABASE_URL=Neon), и они должны различаться.");
+  process.exit(1);
+}
+
+const oldDb = new PrismaClient({ datasources: { db: { url: OLD } } });
+const newDb = new PrismaClient({ datasources: { db: { url: NEW } } });
+
+(async () => {
+  const users = await oldDb.user.findMany();
+  for (const u of users) {
+    const data = { ...u }; delete data.updatedAt; // updatedAt проставится автоматически
+    await newDb.user.upsert({ where: { id: u.id }, update: {}, create: data });
+  }
+  if (users.length) {
+    const maxId = Math.max(...users.map(u => u.id));
+    await newDb.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"User"','id'), ${maxId})`);
+  }
+  console.log("✅ перенесено пользователей:", users.length);
+  await oldDb.$disconnect(); await newDb.$disconnect();
+})().catch(e => { console.error(e); process.exit(1); });

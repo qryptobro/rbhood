@@ -51,7 +51,7 @@ const REC = {
     "Өзім rbhood ai қолданам — график талдауы тегін: ai.rbhood.kz",
   ],
 };
-const TAGS = { ru: "#трейдинг #крипто", kz: "#трейдинг #крипто" };
+const TAGS = { ru: "#трейдинг #форекс #крипто #акция", kz: "#трейдинг #форекс #крипто #акция" };
 const rndRec = (l) => (REC[l] || REC.ru)[Math.floor(Math.random() * REC[l].length)];
 const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 function trimTo(t, max) {

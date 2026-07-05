@@ -38,6 +38,7 @@ if (process.env.DATABASE_URL) {
 app.use("/api/analysis", require("./routes/analysis"));
 app.use("/api/quotes",   require("./routes/quotes"));
 app.use("/api/state",    require("./routes/state"));
+app.use("/api/threads-bot", require("./routes/threadsBot")); // черновики постов + кнопки
 
 // Грузим key-value хранилища (Postgres в проде) ДО старта, затем слушаем порт
 require("./lib/persist").init().finally(() => {

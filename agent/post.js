@@ -8,8 +8,8 @@ const BACKEND = process.env.BACKEND_URL || "https://rbhood-ai.onrender.com";
 const DEMO_EMAIL = process.env.DEMO_EMAIL;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 const GROQ_KEY = process.env.GROQ_API_KEY;
-const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;   // бот для черновиков
-const TG_CHAT = process.env.TELEGRAM_CHAT_ID;      // твой личный chat id
+const IMGBB_KEY = process.env.IMGBB_KEY;             // публичный URL картинки (нужно и для Threads)
+const AGENT_SECRET = process.env.AGENT_SECRET || ""; // общий секрет с бэкендом
 
 // Только крипта — она торгуется 24/7, поэтому карточки всегда активны (форекс/акции по выходным отключены).
 const ASSETS = [
@@ -76,21 +76,28 @@ async function caption(asset) {
   return `Бесплатный ИИ-анализ ${asset.name} за 7 секунд 🚀\nФорекс · Крипто · Акции — без оплаты.\nПробуй: ai.rbhood.kz\n#трейдинг #crypto #forex #ИИ`;
 }
 
-// прислать черновик (фото + текст) в Telegram
-async function sendTelegramDraft(buffer, text) {
-  const cap = ("🆕 ЧЕРНОВИК ПОСТА ДЛЯ THREADS:\n\n" + text).slice(0, 1024);
-  const form = new FormData();
-  form.append("chat_id", TG_CHAT);
-  form.append("caption", cap);
-  form.append("photo", new Blob([buffer], { type: "image/png" }), "post.png");
-  const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPhoto`, { method: "POST", body: form });
+// залить скрин на imgbb -> публичный URL
+async function uploadImage(buffer) {
+  const body = new URLSearchParams({ image: buffer.toString("base64") });
+  const r = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: "POST", body });
   const j = await r.json();
-  if (!j.ok) throw new Error("telegram sendPhoto failed: " + JSON.stringify(j).slice(0, 300));
-  console.log("draft sent to Telegram");
+  if (!j?.data?.url) throw new Error("imgbb upload failed: " + JSON.stringify(j).slice(0, 200));
+  return j.data.url;
+}
+
+// отправить черновик на бэкенд (он пошлёт в Telegram с кнопками Одобрить/Отклонить/Подправить)
+async function submitDraft(asset, imageUrl, text) {
+  const r = await fetch(`${BACKEND}/api/threads-bot/draft`, {
+    method: "POST", headers: { "Content-Type": "application/json", "x-agent-secret": AGENT_SECRET },
+    body: JSON.stringify({ asset, imageUrl, caption: text }),
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error("draft submit failed: " + JSON.stringify(j).slice(0, 300));
+  console.log("draft submitted, id:", j.id);
 }
 
 (async () => {
-  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY, TG_TOKEN, TG_CHAT }))
+  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY, IMGBB_KEY }))
     if (!v) throw new Error(`Missing env: ${k}`);
   const asset = pick(ASSETS);
   console.log("asset:", asset.name);
@@ -99,6 +106,8 @@ async function sendTelegramDraft(buffer, text) {
   console.log("screenshot captured");
   const text = await caption(asset);
   console.log("caption:\n", text);
-  await sendTelegramDraft(buf, text);
-  console.log("✅ draft sent — проверь Telegram");
+  const url = await uploadImage(buf);
+  console.log("image url:", url);
+  await submitDraft(asset.name, url, text);
+  console.log("✅ draft submitted — проверь Telegram (там кнопки)");
 })().catch(e => { console.error("AGENT ERROR:", e.message); process.exit(1); });

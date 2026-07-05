@@ -11,9 +11,11 @@ const GROQ_KEY = process.env.GROQ_API_KEY;
 const TG_TOKEN = process.env.TELEGRAM_BOT_TOKEN;   // бот для черновиков
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID;      // твой личный chat id
 
+// Только крипта — она торгуется 24/7, поэтому карточки всегда активны (форекс/акции по выходным отключены).
 const ASSETS = [
   { tab: "crypto", name: "Bitcoin" }, { tab: "crypto", name: "Ethereum" }, { tab: "crypto", name: "Solana" },
-  { tab: "forex", name: "Euro / Dollar" }, { tab: "forex", name: "Gold / Dollar" }, { tab: "forex", name: "Pound / Dollar" },
+  { tab: "crypto", name: "BNB" }, { tab: "crypto", name: "Ripple" }, { tab: "crypto", name: "Cardano" },
+  { tab: "crypto", name: "Dogecoin" }, { tab: "crypto", name: "Chainlink" },
 ];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

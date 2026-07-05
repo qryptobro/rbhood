@@ -26,12 +26,12 @@ const L = {
     subPaywall: "Your access is limited. Message our manager — we'll open full access for free.",
     badge: "[ FREE ]", btn: "Message manager", included: "What's included:",
   },
-} as const;
+};
 
 export default function Pricing({ paywall = false }: { paywall?: boolean }) {
   const { t, lang } = useI18n();
   const { ref, inView } = useReveal();
-  const tt = (L as Record<string, typeof L.ru>)[lang] || L.ru;
+  const tt = L[lang] || L.ru;
   const features = [t["plan1_f1"], t["plan1_f2"], t["plan1_f3"], t["plan1_f4"], t["plan1_f5"]].filter(Boolean);
 
   return (

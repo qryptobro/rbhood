@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const fmtKzt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
@@ -17,6 +18,10 @@ interface Me {
 }
 
 export default function PartnerPage() {
+  // Партнёрка отключена (платежи убраны, доступ бесплатный) — прямой заход уводим на дашборд.
+  const router = useRouter();
+  useEffect(() => { router.replace("/dashboard"); }, [router]);
+
   const [me, setMe] = useState<Me | null>(null);
   const [err, setErr] = useState("");
   const [amount, setAmount] = useState("");

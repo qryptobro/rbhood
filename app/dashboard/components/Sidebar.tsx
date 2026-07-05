@@ -65,6 +65,8 @@ function UserMenu() {
                 <div className="font-mono text-[10px] text-[#444] truncate">{email}</div>
               </div>
             </div>
+            {/* Партнёрский кабинет скрыт (платежи отключены, доступ бесплатный).
+                Чтобы вернуть — раскомментируй блок ниже.
             <a href="/dashboard/partner" onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-4 py-2.5 border-b border-[#1a1a1a] hover:bg-[#161616] transition-colors group">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#02B365" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -72,6 +74,7 @@ function UserMenu() {
               </svg>
               <span className="font-exo text-sm text-[#888] group-hover:text-white transition-colors">Стать партнёром</span>
             </a>
+            */}
             {items.map(item => (
               <a key={item.label} href={item.href}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#161616] transition-colors group"

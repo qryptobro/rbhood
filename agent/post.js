@@ -109,16 +109,6 @@ async function capture(assetName) {
   } finally { await ctx.close(); await browser.close(); }
 }
 
-async function uploadImage(buffer) {
-  const form = new FormData();
-  form.append("reqtype", "fileupload");
-  form.append("fileToUpload", new Blob([buffer], { type: "image/png" }), "post.png");
-  const r = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: form });
-  const url = (await r.text()).trim();
-  if (!/^https?:\/\//.test(url)) throw new Error("catbox upload failed: " + url.slice(0, 200));
-  return url;
-}
-
 async function submitDraft(d) {
   const r = await fetch(`${BACKEND}/api/threads-bot/draft`, {
     method: "POST", headers: { "Content-Type": "application/json", "x-agent-secret": AGENT_SECRET },
@@ -141,10 +131,10 @@ async function submitDraft(d) {
   const idx = (dayOfYear * 3 + slot) % ANGLES.length;
 
   const asset = pick(ASSETS);
-  const imageUrl = await uploadImage(await capture(asset));
+  const imageB64 = (await capture(asset)).toString("base64");
   for (const lang of ["ru", "kz"]) {
     const caption = await buildCaption(idx, lang);
-    await submitDraft({ asset, imageUrl, caption, angle: idx, lang });
+    await submitDraft({ asset, imageB64, caption, angle: idx, lang });
   }
   console.log(`✅ ${ANGLES[idx].name}: 2 поста (RU+KZ), актив ${asset} — проверь Telegram`);
 })().catch(e => { console.error("AGENT ERROR:", e.message); process.exit(1); });

@@ -101,17 +101,29 @@ async function publishThreads(imageUrl, text) {
 router.post("/draft", async (req, res) => {
   if (AGENT_SECRET && req.headers["x-agent-secret"] !== AGENT_SECRET) return res.status(403).json({ error: "forbidden" });
   if (!TG || !CHAT) return res.status(503).json({ error: "telegram not configured" });
-  const { asset, imageUrl, caption, angle, lang } = req.body || {};
-  if (!imageUrl || !caption) return res.status(400).json({ error: "imageUrl & caption required" });
+  const { asset, imageB64, imageUrl, caption, angle, lang } = req.body || {};
+  if ((!imageB64 && !imageUrl) || !caption) return res.status(400).json({ error: "image & caption required" });
 
   const id = String(Date.now()).slice(-9) + Math.floor(Math.random() * 100);
   const tag = lang === "kz" ? "🇰🇿 KZ" : "🇷🇺 RU";
-  const sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: `🆕 Черновик (${tag}):\n\n${caption}`.slice(0, 1024), reply_markup: keyboard(id) });
+  const capText = `🆕 Черновик (${tag}):\n\n${caption}`.slice(0, 1024);
+
+  let sent;
+  if (imageB64) {
+    const form = new FormData();
+    form.append("chat_id", CHAT);
+    form.append("caption", capText);
+    form.append("reply_markup", JSON.stringify(keyboard(id)));
+    form.append("photo", new Blob([Buffer.from(imageB64, "base64")], { type: "image/png" }), "post.png");
+    sent = await fetch(`https://api.telegram.org/bot${TG}/sendPhoto`, { method: "POST", body: form }).then(r => r.json());
+  } else {
+    sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: capText, reply_markup: keyboard(id) });
+  }
   const messageId = sent?.result?.message_id;
   if (!messageId) return res.status(502).json({ error: "telegram send failed", tg: sent });
 
   const drafts = load();
-  drafts[id] = { asset: asset || "", imageUrl, caption, angle: angle ?? 1, lang: lang || "ru", chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
+  drafts[id] = { asset: asset || "", imageB64: imageB64 || "", imageUrl: imageUrl || "", caption, angle: angle ?? 1, lang: lang || "ru", chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
   const ids = Object.keys(drafts).sort();
   while (ids.length > 50) delete drafts[ids.shift()]; // храним последние 50
   save(drafts);

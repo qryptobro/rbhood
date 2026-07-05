@@ -1,0 +1,12 @@
+{
+  "name": "rbhood-threads-agent",
+  "private": true,
+  "type": "module",
+  "description": "Daily Threads auto-poster: Playwright screenshot of ai.rbhood.kz + LLM caption + Threads API",
+  "scripts": {
+    "post": "node post.js"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

@@ -1,0 +1,33 @@
+name: Threads daily post
+
+on:
+  schedule:
+    - cron: "0 9 * * *"     # каждый день 09:00 UTC (14:00 Астана)
+  workflow_dispatch: {}      # ручной запуск кнопкой (для теста)
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        working-directory: agent
+        run: npm install
+      - name: Install Chromium
+        working-directory: agent
+        run: npx playwright install --with-deps chromium
+      - name: Post to Threads
+        working-directory: agent
+        env:
+          SITE_URL: https://ai.rbhood.kz
+          BACKEND_URL: https://rbhood-ai.onrender.com
+          DEMO_EMAIL: ${{ secrets.DEMO_EMAIL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          IMGBB_KEY: ${{ secrets.IMGBB_KEY }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: node post.js

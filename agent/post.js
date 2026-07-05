@@ -95,8 +95,11 @@ async function postThreads(imageUrl, text) {
 }
 
 (async () => {
-  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY, IMGBB_KEY, TH_USER, TH_TOKEN }))
+  // обязательные для съёмки; Threads-секреты опциональны (без них — тест-режим без постинга)
+  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY, IMGBB_KEY }))
     if (!v) throw new Error(`Missing env: ${k}`);
+  const willPost = !!(TH_USER && TH_TOKEN);
+
   const asset = pick(ASSETS);
   console.log("asset:", asset.name);
   await wakeBackend();
@@ -106,6 +109,7 @@ async function postThreads(imageUrl, text) {
   console.log("image url:", url);
   const text = await caption(asset);
   console.log("caption:\n", text);
-  await postThreads(url, text);
-  console.log("✅ done");
+
+  if (willPost) { await postThreads(url, text); console.log("✅ posted"); }
+  else console.log("ℹ️ ТЕСТ-режим (нет THREADS_* секретов): пост НЕ отправлен. Проверь картинку по ссылке выше и текст.");
 })().catch(e => { console.error("AGENT ERROR:", e.message); process.exit(1); });

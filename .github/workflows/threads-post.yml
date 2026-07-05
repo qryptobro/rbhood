@@ -27,6 +27,5 @@ jobs:
           DEMO_EMAIL: ${{ secrets.DEMO_EMAIL }}
           DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          IMGBB_KEY: ${{ secrets.IMGBB_KEY }}
           AGENT_SECRET: ${{ secrets.AGENT_SECRET }}
         run: node post.js

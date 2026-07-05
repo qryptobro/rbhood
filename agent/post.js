@@ -8,7 +8,6 @@ const BACKEND = process.env.BACKEND_URL || "https://rbhood-ai.onrender.com";
 const DEMO_EMAIL = process.env.DEMO_EMAIL;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 const GROQ_KEY = process.env.GROQ_API_KEY;
-const IMGBB_KEY = process.env.IMGBB_KEY;             // публичный URL картинки (нужно и для Threads)
 const AGENT_SECRET = process.env.AGENT_SECRET || ""; // общий секрет с бэкендом
 
 // Только крипта — она торгуется 24/7, поэтому карточки всегда активны (форекс/акции по выходным отключены).
@@ -76,13 +75,15 @@ async function caption(asset) {
   return `Бесплатный ИИ-анализ ${asset.name} за 7 секунд 🚀\nФорекс · Крипто · Акции — без оплаты.\nПробуй: ai.rbhood.kz\n#трейдинг #crypto #forex #ИИ`;
 }
 
-// залить скрин на imgbb -> публичный URL
+// залить скрин на catbox.moe (без ключа) -> публичный URL
 async function uploadImage(buffer) {
-  const body = new URLSearchParams({ image: buffer.toString("base64") });
-  const r = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: "POST", body });
-  const j = await r.json();
-  if (!j?.data?.url) throw new Error("imgbb upload failed: " + JSON.stringify(j).slice(0, 200));
-  return j.data.url;
+  const form = new FormData();
+  form.append("reqtype", "fileupload");
+  form.append("fileToUpload", new Blob([buffer], { type: "image/png" }), "post.png");
+  const r = await fetch("https://catbox.moe/user/api.php", { method: "POST", body: form });
+  const url = (await r.text()).trim();
+  if (!/^https?:\/\//.test(url)) throw new Error("catbox upload failed: " + url.slice(0, 200));
+  return url;
 }
 
 // отправить черновик на бэкенд (он пошлёт в Telegram с кнопками Одобрить/Отклонить/Подправить)
@@ -97,7 +98,7 @@ async function submitDraft(asset, imageUrl, text) {
 }
 
 (async () => {
-  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY, IMGBB_KEY }))
+  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY }))
     if (!v) throw new Error(`Missing env: ${k}`);
   const asset = pick(ASSETS);
   console.log("asset:", asset.name);

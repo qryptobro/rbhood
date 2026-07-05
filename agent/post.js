@@ -39,8 +39,16 @@ async function capture(asset) {
     await page.waitForURL(/\/dashboard/, { timeout: 30000 });
     await sleep(2000);
 
-    try { await page.getByText(/^(Крипто|Форекс|Акции|Crypto|Forex|Stocks)$/i).first().click({ timeout: 4000 }); } catch {}
-    await page.getByText(asset.name, { exact: false }).first().click({ timeout: 15000 });
+    // выбрать вкладку по категории актива (crypto -> Крипто и т.д.)
+    const tabLabel = { crypto: "Крипто", forex: "Форекс", stocks: "Акции" }[asset.tab] || "Крипто";
+    try { await page.getByText(tabLabel, { exact: true }).first().click({ timeout: 6000 }); await sleep(1500); }
+    catch (e) { console.log("tab click skipped:", e.message); }
+
+    // кликнуть по активу (по имени)
+    const target = page.getByText(asset.name, { exact: false }).first();
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.click({ timeout: 15000 });
+
     await page.getByText(/Технический анализ|Вход|Тейк|Technical analysis|Entry/i).first().waitFor({ timeout: 90000 });
     await sleep(2500);
 

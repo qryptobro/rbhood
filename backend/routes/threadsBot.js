@@ -23,27 +23,40 @@ const keyboard = (id) => ({ inline_keyboard: [[
   { text: "✏️ Подправить", callback_data: `ed:${id}` },
 ]]});
 
-// сгенерировать новый вариант подписи (для «Подправить»)
-const CAPTION_SYS = `Ты — трейдер, который искренне хочет помочь людям и устал смотреть, как новичков разводят на дорогие курсы по трейдингу. Пиши пост для Threads от первого лица, по-человечески, без рекламных штампов.
+// 6 углов (синхронизировано с agent/post.js). «Подправить» генерит в том же угле и языке.
+const ANGLES = [
+  { prompt: "Раскрой 5 повторяющихся ФОРМУЛ вирусных хуков в нише трейдинга (только формулы-шаблоны, без примеров)." },
+  { prompt: "Разбей убеждение трейдеров «я пробовал — не сработало» на 3 логические ошибки." },
+  { prompt: "Опиши не проблему, а МОМЕНТ, когда трейдер понимает, что застрял." },
+  { prompt: "Сформулируй жёсткую, разделяющую аудиторию, но логически защитимую позицию по трейдингу." },
+  { prompt: "Перепиши личный результат в трейдинге так, будто автор не герой, а хладнокровный оператор системы." },
+  { prompt: "Скажи, что в трейдинге делать НЕ нужно, даже если все так советуют." },
+];
 
-ВСЕГДА начинай с эмоционального триггера про курсы по трейдингу — каждый раз формулируй ПО-НОВОМУ. Тон (не копируй дословно):
-— «Мне искренне жалко людей, которые отдают сотни тысяч за курсы по трейдингу и всё равно сливают…»
-— «Знаю столько людей, что купили курс по трейдингу, а в плюс так и не вышли…»
-— «Хватит платить за курсы, которые ничему не учат…»
+function fmt(text) {
+  const tags = (text.match(/#[\p{L}\p{N}_]+/gu) || []);
+  const body = text.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return tags.length ? `${body}\n\n${[...new Set(tags)].join(" ")}` : body;
+}
 
-Затем мягко подведи к решению: есть БЕСПЛАТНАЯ платформа rbhood ai — ИИ анализирует любой график (форекс, крипто, акции) за 7 секунд и подсказывает, что делать. Платить не нужно. Ссылка: ai.rbhood.kz
+function tailFor(lang) {
+  const rec = "бесплатная платформа rbhood ai — ИИ разбирает любой график за 7 секунд, ai.rbhood.kz";
+  if (lang === "kz")
+    return ` Напиши пост на КАЗАХСКОМ языке (қазақша), живой человеческий тон от первого лица, 3-6 коротких строк. В самом конце — мягкая ненавязчивая рекомендация (на казахском, ссылку ai.rbhood.kz оставь): ${rec}. По-дружески, не реклама. Добавь 1-3 хэштега.`;
+  return ` Пост на русском, живой человеческий тон от первого лица, 3-6 коротких строк. В самом конце — мягкая ненавязчивая рекомендация: ${rec}. По-дружески, не как реклама. Добавь 1-3 хэштега.`;
+}
 
-Тон живой и искренний, будто советуешь другу. 3-5 коротких строк. В конце 2-4 хэштега. Без воды.`;
-
-async function groqCaption(asset) {
+// сгенерировать новый вариант подписи (для «Подправить») в том же угле и языке
+async function buildCaption(idx, lang) {
+  const angle = ANGLES[idx] || ANGLES[1];
   try {
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 320, temperature: 1.15, messages: [{ role: "system", content: CAPTION_SYS }, { role: "user", content: `На скриншоте — пример анализа ${asset}. Другой вариант поста.` }] }),
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 380, temperature: 1.2, messages: [{ role: "system", content: angle.prompt + tailFor(lang) }, { role: "user", content: "Другой вариант поста." }] }),
     });
-    const j = await r.json(); const t = (j.choices?.[0]?.message?.content || "").trim(); if (t) return t;
+    const j = await r.json(); const t = (j.choices?.[0]?.message?.content || "").trim(); if (t) return fmt(t);
   } catch { /* ignore */ }
-  return `Жалко людей, которые платят за курсы по трейдингу и всё равно в минусе.\nЕсть rbhood ai — ИИ разбирает график за 7 секунд. Бесплатно: ai.rbhood.kz\n#трейдинг #крипто`;
+  return fmt("Есть rbhood ai — ИИ разбирает график за 7 секунд. Бесплатно: ai.rbhood.kz\n#трейдинг #крипто");
 }
 
 // публикация в Threads (image_url + text). Возвращает {ok, reason?}
@@ -61,16 +74,17 @@ async function publishThreads(imageUrl, text) {
 router.post("/draft", async (req, res) => {
   if (AGENT_SECRET && req.headers["x-agent-secret"] !== AGENT_SECRET) return res.status(403).json({ error: "forbidden" });
   if (!TG || !CHAT) return res.status(503).json({ error: "telegram not configured" });
-  const { asset, imageUrl, caption } = req.body || {};
+  const { asset, imageUrl, caption, angle, lang } = req.body || {};
   if (!imageUrl || !caption) return res.status(400).json({ error: "imageUrl & caption required" });
 
-  const id = String(Date.now()).slice(-9);
-  const sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: `🆕 Черновик поста для Threads:\n\n${caption}`.slice(0, 1024), reply_markup: keyboard(id) });
+  const id = String(Date.now()).slice(-9) + Math.floor(Math.random() * 100);
+  const tag = lang === "kz" ? "🇰🇿 KZ" : "🇷🇺 RU";
+  const sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: `🆕 Черновик (${tag}):\n\n${caption}`.slice(0, 1024), reply_markup: keyboard(id) });
   const messageId = sent?.result?.message_id;
   if (!messageId) return res.status(502).json({ error: "telegram send failed", tg: sent });
 
   const drafts = load();
-  drafts[id] = { asset: asset || "", imageUrl, caption, chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
+  drafts[id] = { asset: asset || "", imageUrl, caption, angle: angle ?? 1, lang: lang || "ru", chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
   const ids = Object.keys(drafts).sort();
   while (ids.length > 50) delete drafts[ids.shift()]; // храним последние 50
   save(drafts);
@@ -100,9 +114,10 @@ router.post("/webhook", async (req, res) => {
       await editCap(`❌ Отклонено\n\n${d.caption}`);
       await answer("Отклонено");
     } else if (act === "ed") {
-      const nc = await groqCaption(d.asset || "актив");
+      const nc = await buildCaption(d.angle ?? 1, d.lang || "ru");
       d.caption = nc; save(drafts);
-      await editCap(`🆕 Черновик (обновлён):\n\n${nc}`, keyboard(id));
+      const tag = d.lang === "kz" ? "🇰🇿 KZ" : "🇷🇺 RU";
+      await editCap(`🆕 Черновик (${tag}, обновлён):\n\n${nc}`, keyboard(id));
       await answer("Сгенерировал новый вариант");
     }
   } catch (e) { console.error("threads webhook:", e.message); }

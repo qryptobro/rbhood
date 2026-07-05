@@ -6,7 +6,8 @@ const TG = process.env.TELEGRAM_BOT_TOKEN || "";
 const CHAT = process.env.THREADS_DRAFTS_CHAT_ID || process.env.TELEGRAM_CHAT_ID || "";
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
 const WH_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
-const GROQ = process.env.GROQ_API_KEY || "";
+const GEMINI = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const TH_USER = process.env.THREADS_USER_ID || "";
 const TH_TOKEN = process.env.THREADS_ACCESS_TOKEN || "";
 
@@ -50,11 +51,17 @@ function tailFor(lang) {
 async function buildCaption(idx, lang) {
   const angle = ANGLES[idx] || ANGLES[1];
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 380, temperature: 1.2, messages: [{ role: "system", content: angle.prompt + tailFor(lang) }, { role: "user", content: "Другой вариант поста." }] }),
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: angle.prompt + tailFor(lang) }] },
+        contents: [{ role: "user", parts: [{ text: "Другой вариант поста." }] }],
+        generationConfig: { maxOutputTokens: 500, temperature: 1.2, thinkingConfig: { thinkingBudget: 0 } },
+      }),
     });
-    const j = await r.json(); const t = (j.choices?.[0]?.message?.content || "").trim(); if (t) return fmt(t);
+    const j = await r.json();
+    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
+    if (t) return fmt(t);
   } catch { /* ignore */ }
   return fmt("Есть rbhood ai — ИИ разбирает график за 7 секунд. Бесплатно: ai.rbhood.kz\n#трейдинг #крипто");
 }

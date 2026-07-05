@@ -7,7 +7,8 @@ const SITE = process.env.SITE_URL || "https://ai.rbhood.kz";
 const BACKEND = process.env.BACKEND_URL || "https://rbhood-ai.onrender.com";
 const DEMO_EMAIL = process.env.DEMO_EMAIL;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
-const GROQ_KEY = process.env.GROQ_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
 
 // Только крипта — торгуется 24/7, карточки всегда активны.
@@ -44,11 +45,16 @@ function tailFor(lang) {
 async function buildCaption(idx, lang) {
   const sys = ANGLES[idx].prompt + tailFor(lang);
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
-      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 380, temperature: 1.1, messages: [{ role: "system", content: sys }, { role: "user", content: "Напиши пост." }] }),
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: sys }] },
+        contents: [{ role: "user", parts: [{ text: "Напиши пост." }] }],
+        generationConfig: { maxOutputTokens: 500, temperature: 1.1, thinkingConfig: { thinkingBudget: 0 } },
+      }),
     });
-    const j = await r.json(); const t = (j.choices?.[0]?.message?.content || "").trim();
+    const j = await r.json();
+    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
     if (t) return fmt(t);
   } catch { /* фоллбэк */ }
   return fmt(`Жалко людей, которые платят за курсы по трейдингу и всё равно в минусе.\nЕсть rbhood ai — ИИ разбирает график за 7 секунд. Бесплатно: ai.rbhood.kz\n#трейдинг #крипто`);
@@ -103,7 +109,7 @@ async function submitDraft(d) {
 }
 
 (async () => {
-  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GROQ_KEY }))
+  for (const [k, v] of Object.entries({ DEMO_EMAIL, DEMO_PASSWORD, GEMINI_KEY }))
     if (!v) throw new Error(`Missing env: ${k}`);
   await wakeBackend();
 

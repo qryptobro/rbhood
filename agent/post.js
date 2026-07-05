@@ -35,29 +35,49 @@ function fmt(text) {
   return tags.length ? `${body}\n\n${[...new Set(tags)].join(" ")}` : body;
 }
 
-function tailFor(lang) {
-  const rec = "бесплатная платформа rbhood ai — ИИ разбирает любой график за 7 секунд, ai.rbhood.kz";
-  if (lang === "kz")
-    return ` Напиши пост на КАЗАХСКОМ языке (қазақша), живой человеческий тон от первого лица, 3-6 коротких строк. В самом конце — мягкая ненавязчивая рекомендация (на казахском, ссылку ai.rbhood.kz оставь): ${rec}. По-дружески, не реклама. Добавь 1-3 хэштега.`;
-  return ` Пост на русском, живой человеческий тон от первого лица, 3-6 коротких строк. В самом конце — мягкая ненавязчивая рекомендация: ${rec}. По-дружески, не как реклама. Добавь 1-3 хэштега.`;
+// Рекомендацию платформы и хэштеги добавляем САМИ (LLM пишет только текст поста) — так держим лимит Threads.
+const REC = {
+  ru: [
+    "Кстати, сам графики смотрю через rbhood ai — бесплатно, разбирает за 7 сек: ai.rbhood.kz",
+    "Я через rbhood ai смотрю — бесплатный ИИ-разбор графика за 7 сек: ai.rbhood.kz",
+  ],
+  kz: [
+    "Айтпақшы, графикті rbhood ai арқылы қараймын — тегін, 7 секунд: ai.rbhood.kz",
+    "Өзім rbhood ai қолданам — график талдауы тегін: ai.rbhood.kz",
+  ],
+};
+const TAGS = { ru: "#трейдинг #крипто", kz: "#трейдинг #крипто" };
+const rndRec = (l) => REC[l][Math.floor(Math.random() * REC[l].length)];
+const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+function trimTo(t, max) {
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const m = cut.match(/[\s\S]*[.!?…\n]/);
+  return (m ? m[0] : cut).trim();
+}
+function toneInstr(lang) {
+  return lang === "kz"
+    ? " Постты ҚАЗАҚША жаз. Тірі адамдай, қарапайым ауызекі тілмен, ЖИ жазғаны білінбесін. ТЕК пост мәтіні, өте қысқа: 1-3 сөйлем. Сілтеме, жарнама, ұсыныс ҚОСПА."
+    : " Пиши по-русски, как живой человек — просто и коротко (1-3 предложения), без штампов, чтобы не было видно ИИ. ТОЛЬКО текст поста. НЕ добавляй ссылок, рекламы и рекомендаций.";
 }
 
 async function buildCaption(idx, lang) {
-  const sys = ANGLES[idx].prompt + tailFor(lang);
+  const sys = ANGLES[idx].prompt + toneInstr(lang);
+  let content = "";
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: sys }] },
         contents: [{ role: "user", parts: [{ text: "Напиши пост." }] }],
-        generationConfig: { maxOutputTokens: 500, temperature: 1.1, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: { maxOutputTokens: 300, temperature: 1.1, thinkingConfig: { thinkingBudget: 0 } },
       }),
     });
     const j = await r.json();
-    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
-    if (t) return fmt(t);
-  } catch { /* фоллбэк */ }
-  return fmt(`Жалко людей, которые платят за курсы по трейдингу и всё равно в минусе.\nЕсть rbhood ai — ИИ разбирает график за 7 секунд. Бесплатно: ai.rbhood.kz\n#трейдинг #крипто`);
+    content = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
+  } catch { /* ignore */ }
+  content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
+  return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }
 
 async function wakeBackend() {

@@ -68,11 +68,10 @@ async function caption(asset) {
 
 // прислать черновик (фото + текст) в Telegram
 async function sendTelegramDraft(buffer, text) {
-  const cap = ("🆕 <b>Черновик поста для Threads</b>\n\n" + text).slice(0, 1024);
+  const cap = ("🆕 ЧЕРНОВИК ПОСТА ДЛЯ THREADS:\n\n" + text).slice(0, 1024);
   const form = new FormData();
   form.append("chat_id", TG_CHAT);
   form.append("caption", cap);
-  form.append("parse_mode", "HTML");
   form.append("photo", new Blob([buffer], { type: "image/png" }), "post.png");
   const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPhoto`, { method: "POST", body: form });
   const j = await r.json();

@@ -133,17 +133,18 @@ async function submitDraft(d) {
     if (!v) throw new Error(`Missing env: ${k}`);
   await wakeBackend();
 
-  const chosen = shuffle([...ANGLES.keys()]).slice(0, 3); // 3 угла в день
-  for (const idx of chosen) {
-    const asset = pick(ASSETS);
-    let imageUrl;
-    try { imageUrl = await uploadImage(await capture(asset)); }
-    catch (e) { console.error(`capture/upload failed (${ANGLES[idx].name}):`, e.message); continue; }
-    for (const lang of ["ru", "kz"]) {
-      const caption = await buildCaption(idx, lang);
-      await submitDraft({ asset, imageUrl, caption, angle: idx, lang });
-    }
-    console.log(`✅ ${ANGLES[idx].name}: ru+kz отправлены (${asset})`);
+  // За запуск — 1 угол (RU+KZ = 2 поста). Слоты 09/11/13 UTC (14/16/18 Астаны).
+  // Угол ротируется по дню + слоту, чтобы 3 слота в день были разными.
+  const now = new Date();
+  const dayOfYear = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000);
+  const slot = Math.max(0, Math.round((now.getUTCHours() - 9) / 2)); // 9,11,13 UTC -> 0,1,2
+  const idx = (dayOfYear * 3 + slot) % ANGLES.length;
+
+  const asset = pick(ASSETS);
+  const imageUrl = await uploadImage(await capture(asset));
+  for (const lang of ["ru", "kz"]) {
+    const caption = await buildCaption(idx, lang);
+    await submitDraft({ asset, imageUrl, caption, angle: idx, lang });
   }
-  console.log("готово — проверь Telegram");
+  console.log(`✅ ${ANGLES[idx].name}: 2 поста (RU+KZ), актив ${asset} — проверь Telegram`);
 })().catch(e => { console.error("AGENT ERROR:", e.message); process.exit(1); });

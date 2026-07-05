@@ -2,8 +2,10 @@ name: Threads daily post
 
 on:
   schedule:
-    - cron: "0 9 * * *"     # каждый день 09:00 UTC (14:00 Астана)
-  workflow_dispatch: {}      # ручной запуск кнопкой (для теста)
+    - cron: "0 9 * * *"      # 14:00 Астана
+    - cron: "0 11 * * *"     # 16:00 Астана
+    - cron: "0 13 * * *"     # 18:00 Астана
+  workflow_dispatch: {}       # ручной запуск кнопкой (для теста)
 
 jobs:
   post:

@@ -11,6 +11,8 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const THREADS_SESSION = process.env.THREADS_SESSION || ""; // storageState JSON для скрапинга Threads
+const THREADS_QUERIES = (process.env.THREADS_QUERIES || "трейдинг,трейдер,инвестиции,крипта,биткоин").split(",").map(s => s.trim()).filter(Boolean);
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
 
 // Только крипта — торгуется 24/7, карточки всегда активны.
@@ -111,9 +113,21 @@ async function groqGen(sys, userMsg) {
   } catch { return ""; }
 }
 
+// Системный промпт «разбери залетевшие посты и напиши такой же».
+function analysisSys(lang) {
+  return "Ты — эксперт по вирусному контенту Threads в нише трейдинга. Тебе дают РЕАЛЬНЫЕ залетевшие посты. Про себя пойми, ПОЧЕМУ они зашли (хук, эмоция, структура, конкретика), затем напиши ОДИН свой оригинальный пост про трейдинг в том же стиле и энергии — НЕ перевод и НЕ копия, своя мысль." + HOOK_RULES + toneInstr(lang);
+}
+
 async function buildCaption(idx, lang, refs = {}) {
-  const sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang);
-  const userMsg = refsToUserMsg(refs);
+  const viral = (refs.viral || []).filter(Boolean);
+  let sys, userMsg;
+  if (viral.length) {
+    sys = analysisSys(lang);
+    userMsg = `Вот реальные залетевшие посты Threads по трейдингу:\n\n${viral.slice(0, 8).map((t, i) => `${i + 1}) ${String(t).slice(0, 400)}`).join("\n\n")}\n\nРазбери, почему они зашли, и напиши свой оригинальный пост в этом стиле.`;
+  } else {
+    sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang); // фолбэк: угол + новостные тренды
+    userMsg = refsToUserMsg(refs);
+  }
   let content = await geminiGen(sys, userMsg);
   if (!content) content = await groqGen(sys, userMsg); // Gemini лимит -> Groq
   content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
@@ -146,6 +160,46 @@ async function fetchNewsHooks() {
   }
   console.log(`news hooks: ${out.length}`);
   return out;
+}
+
+// Скрапинг реальных залетевших постов Threads (нужен THREADS_SESSION). Возвращает [{text, score}].
+async function fetchThreadsViral() {
+  if (!THREADS_SESSION) { console.log("threads viral: нет THREADS_SESSION — пропуск"); return []; }
+  let storageState;
+  try { storageState = JSON.parse(THREADS_SESSION); } catch { console.log("threads viral: THREADS_SESSION не JSON"); return []; }
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ storageState, viewport: { width: 1280, height: 1400 }, locale: "ru-RU" });
+  const page = await ctx.newPage();
+  const collected = new Map(); // text -> score (дедуп)
+  try {
+    for (const q of shuffle(THREADS_QUERIES).slice(0, 3)) {
+      try {
+        await page.goto(`https://www.threads.net/search?q=${encodeURIComponent(q)}&serp_type=default`, { waitUntil: "domcontentloaded", timeout: 40000 });
+        await sleep(3500);
+        if (/\/login/.test(page.url())) { console.log("threads viral: сессия протухла (редирект на login)"); break; }
+        for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 2200); await sleep(1200); }
+        const items = await page.evaluate(() => {
+          const parseNum = (s) => { const m = String(s).match(/([\d.,]+)\s*([KkMmКкМм]?)/); if (!m) return 0; let n = parseFloat(m[1].replace(/,/g, ".").replace(/\.(?=\d{3})/g, "")); if (/[KkКк]/.test(m[2])) n *= 1e3; if (/[MmМм]/.test(m[2])) n *= 1e6; return Math.round(n) || 0; };
+          let conts = Array.from(document.querySelectorAll('div[data-pressable-container="true"]'));
+          if (!conts.length) conts = Array.from(document.querySelectorAll("article"));
+          const out = [];
+          for (const c of conts) {
+            const txt = (c.innerText || "").replace(/\s+\n/g, "\n").trim();
+            if (txt.length < 30) continue;
+            const nums = (txt.match(/[\d.,]+\s*[KkMmКкМм]?/g) || []).map(parseNum);
+            out.push({ txt: txt.slice(0, 400), score: nums.length ? Math.max(...nums) : 0 });
+          }
+          return out;
+        });
+        for (const it of items) if (!collected.has(it.txt)) collected.set(it.txt, it.score);
+        console.log(`threads viral: "${q}" +${items.length}`);
+      } catch (e) { console.log(`threads viral: "${q}" err ${e.message.slice(0, 80)}`); }
+    }
+    try { await page.screenshot({ path: "threads-debug.png" }); } catch {}
+  } finally { await ctx.close(); await browser.close(); }
+  const arr = [...collected.entries()].map(([text, score]) => ({ text, score })).sort((a, b) => b.score - a.score);
+  console.log(`threads viral: собрано ${arr.length} уникальных`);
+  return arr.slice(0, 10);
 }
 
 // Топ-посты трейдинг-сабреддитов через OAuth (нужны REDDIT_CLIENT_ID/REDDIT_SECRET; иначе пропускаем).
@@ -241,9 +295,11 @@ async function submitDraft(d) {
   const slot = Math.max(0, Math.round((now.getUTCHours() - 9) / 2)); // 9,11,13 UTC -> 0,1,2
   const idx = (dayOfYear * 3 + slot) % ANGLES.length;
 
-  // Референсы «что сейчас заходит»: новости + Reddit(OAuth) + твои удачные посты (инсайты, если доступны).
+  // Главный источник — реальные залетевшие посты Threads (скрапинг). Фолбэк — новости/Reddit.
+  const viralPosts = await fetchThreadsViral();
   const [news, reddit, mine] = await Promise.all([fetchNewsHooks(), fetchRedditHooks(), fetchMyTopPosts()]);
-  const refs = { trend: shuffle([...reddit, ...news]).slice(0, 8), mine };
+  const refs = { viral: viralPosts.map(v => v.text), trend: shuffle([...reddit, ...news]).slice(0, 8), mine };
+  console.log(`refs: viral=${refs.viral.length} trend=${refs.trend.length} mine=${refs.mine.length}`);
 
   const asset = pick(ASSETS);
   const imageB64 = (await capture(asset)).toString("base64");

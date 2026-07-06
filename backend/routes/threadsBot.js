@@ -10,6 +10,7 @@ const GEMINI = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const TH_USER = process.env.THREADS_USER_ID || "";
 const TH_TOKEN = process.env.THREADS_ACCESS_TOKEN || "";
+const IMGBB_KEY = process.env.IMGBB_KEY || "1a1a33a6331c3c20d7500f317ca93905";
 
 const tg = (m, body) => fetch(`https://api.telegram.org/bot${TG}/${m}`, {
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -86,11 +87,33 @@ async function buildCaption(idx, lang) {
   return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }
 
-// публикация в Threads (image_url + text). Возвращает {ok, reason?}
+// залить base64-картинку -> публичный URL (Threads API не принимает base64, только image_url).
+// imgbb принимает base64 напрямую; фоллбэк — catbox (multipart-файл). Возвращает "" при неудаче.
+async function hostImage(b64) {
+  if (!b64) return "";
+  try {
+    const form = new URLSearchParams(); form.append("image", b64);
+    const j = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: "POST", body: form }).then(r => r.json());
+    if (j?.data?.url) return j.data.url;
+  } catch { /* ignore */ }
+  try {
+    const form = new FormData();
+    form.append("reqtype", "fileupload");
+    form.append("fileToUpload", new Blob([Buffer.from(b64, "base64")], { type: "image/png" }), "post.png");
+    const t = (await fetch("https://catbox.moe/user/api.php", { method: "POST", body: form }).then(r => r.text())).trim();
+    if (/^https?:\/\//.test(t)) return t;
+  } catch { /* ignore */ }
+  return "";
+}
+
+// публикация в Threads. С image_url — картиночный пост, без — текстовый (страховка). Возвращает {ok, reason?}
 async function publishThreads(imageUrl, text) {
   if (!TH_USER || !TH_TOKEN) return { ok: false, reason: "not_configured" };
   const base = `https://graph.threads.net/v1.0/${TH_USER}`;
-  const c = await fetch(`${base}/threads?media_type=IMAGE&image_url=${encodeURIComponent(imageUrl)}&text=${encodeURIComponent(text)}&access_token=${TH_TOKEN}`, { method: "POST" }).then(r => r.json());
+  const createUrl = imageUrl
+    ? `${base}/threads?media_type=IMAGE&image_url=${encodeURIComponent(imageUrl)}&text=${encodeURIComponent(text)}&access_token=${TH_TOKEN}`
+    : `${base}/threads?media_type=TEXT&text=${encodeURIComponent(text)}&access_token=${TH_TOKEN}`;
+  const c = await fetch(createUrl, { method: "POST" }).then(r => r.json());
   if (!c?.id) return { ok: false, reason: JSON.stringify(c).slice(0, 200) };
   await new Promise(r => setTimeout(r, 5000));
   const p = await fetch(`${base}/threads_publish?creation_id=${c.id}&access_token=${TH_TOKEN}`, { method: "POST" }).then(r => r.json());
@@ -218,7 +241,10 @@ router.post("/webhook", async (req, res) => {
     const editCap = (cap, markup) => tg("editMessageCaption", { chat_id: d.chatId, message_id: d.messageId, caption: cap.slice(0, 1024), ...(markup ? { reply_markup: markup } : {}) });
 
     if (act === "ap") {
-      const r = await publishThreads(d.imageUrl, d.caption);
+      await answer("Публикую в Threads…");
+      let imageUrl = d.imageUrl;
+      if (!imageUrl && d.imageB64) imageUrl = await hostImage(d.imageB64); // залить скрин -> публичный URL
+      const r = await publishThreads(imageUrl, d.caption);
       d.status = r.ok ? "published" : "approved"; save(drafts);
       await editCap(r.ok ? `✅ Опубликовано в Threads\n\n${d.caption}` : `✅ Одобрено (Threads пока не настроен — настрой Meta app)\n\n${d.caption}`);
       await answer(r.ok ? "Опубликовано!" : r.reason === "not_configured" ? "Одобрено (Threads не настроен)" : "Ошибка Threads: " + r.reason);

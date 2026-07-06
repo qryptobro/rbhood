@@ -174,7 +174,7 @@ async function fetchThreadsViral() {
   try {
     for (const q of shuffle(THREADS_QUERIES).slice(0, 3)) {
       try {
-        await page.goto(`https://www.threads.net/search?q=${encodeURIComponent(q)}&serp_type=default`, { waitUntil: "domcontentloaded", timeout: 40000 });
+        await page.goto(`https://www.threads.com/search?q=${encodeURIComponent(q)}&serp_type=default`, { waitUntil: "domcontentloaded", timeout: 40000 });
         await sleep(3500);
         if (/\/login/.test(page.url())) { console.log("threads viral: сессия протухла (редирект на login)"); break; }
         for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, 2200); await sleep(1200); }

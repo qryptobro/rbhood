@@ -197,6 +197,29 @@ router.post("/draft", async (req, res) => {
   res.json({ ok: true, id: r.id });
 });
 
+// GET /api/threads-bot/my-top — твои лучшие посты по лайкам (для петли обучения агента).
+// Требует threads_manage_insights; без доступа insights падают -> likes 0 -> вернём [].
+router.get("/my-top", async (req, res) => {
+  if (AGENT_SECRET && req.headers["x-agent-secret"] !== AGENT_SECRET) return res.status(403).json({ error: "forbidden" });
+  if (!TH_USER || !TH_TOKEN) return res.json({ posts: [] });
+  try {
+    const base = `https://graph.threads.net/v1.0/${TH_USER}`;
+    const list = await fetch(`${base}/threads?fields=id,text&limit=25&access_token=${TH_TOKEN}`).then(r => r.json());
+    const items = (Array.isArray(list?.data) ? list.data : []).filter(it => it.text).slice(0, 15);
+    const scored = [];
+    for (const it of items) {
+      let likes = 0;
+      try {
+        const ins = await fetch(`https://graph.threads.net/v1.0/${it.id}/insights?metric=likes&access_token=${TH_TOKEN}`).then(r => r.json());
+        likes = ins?.data?.find(m => m.name === "likes")?.values?.[0]?.value || 0;
+      } catch { /* no insights access */ }
+      scored.push({ text: it.text, likes });
+    }
+    scored.sort((a, b) => b.likes - a.likes);
+    res.json({ posts: scored.filter(p => p.likes > 0).slice(0, 5).map(p => p.text) });
+  } catch (e) { res.json({ posts: [], error: e.message.slice(0, 120) }); }
+});
+
 // POST /api/threads-bot/webhook — Telegram шлёт сюда нажатия кнопок
 router.post("/webhook", async (req, res) => {
   if (WH_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WH_SECRET) return res.sendStatus(403);

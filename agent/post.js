@@ -17,8 +17,9 @@ const THREADS_SESSION = process.env.THREADS_SESSION || ""; // storageState JSON 
 const THREADS_QUERIES = (process.env.THREADS_QUERIES || "трейдинг,трейдер,инвестиции,крипта,биткоин").split(",").map(s => s.trim()).filter(Boolean);
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
 
-// Только крипта — торгуется 24/7, карточки всегда активны.
-const ASSETS = ["Bitcoin", "Ethereum", "Solana", "BNB", "Ripple", "Cardano", "Dogecoin", "Chainlink"];
+// Будни — Форекс (рынок открыт), выходные — крипта (24/7). Выбор по дню недели.
+const FOREX = ["XAUUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "XAGUSD", "AUDJPY"];
+const CRYPTO = ["Bitcoin", "Ethereum", "Solana", "BNB", "Ripple", "Cardano", "Dogecoin", "Chainlink", "Avalanche", "Polkadot"];
 
 // 6 углов ведения Threads (ротируются — 3 в день)
 const ANGLES = [
@@ -273,8 +274,8 @@ async function wakeBackend() {
   }
 }
 
-// логин + анализ актива + скриншот -> Buffer(PNG)
-async function capture(assetName) {
+// логин + анализ актива + скриншот -> Buffer(PNG). category: "Форекс" | "Крипто"
+async function capture(category, assetName) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
@@ -285,7 +286,7 @@ async function capture(assetName) {
     await page.getByRole("button", { name: /Войти|Sign in|Кіру/i }).first().click();
     await page.waitForURL(/\/dashboard/, { timeout: 30000 });
     await sleep(2000);
-    try { await page.getByText("Крипто", { exact: true }).first().click({ timeout: 6000 }); await sleep(1500); } catch {}
+    try { await page.getByText(category, { exact: true }).first().click({ timeout: 6000 }); await sleep(1500); } catch {}
     const target = page.getByText(assetName, { exact: false }).first();
     await target.scrollIntoViewIfNeeded().catch(() => {});
     await target.click({ timeout: 15000 });
@@ -322,8 +323,13 @@ async function submitDraft(d) {
   const refs = { viral: viralPosts.map(v => v.text), trend: shuffle([...reddit, ...news]).slice(0, 8), mine };
   console.log(`refs: viral=${refs.viral.length} trend=${refs.trend.length} mine=${refs.mine.length}`);
 
-  const asset = pick(ASSETS);
-  const imageB64 = (await capture(asset)).toString("base64");
+  // Будни (Пн–Пт) — Форекс, выходные (Сб/Вс) — крипта. День берём по Астане (UTC+5).
+  const dow = new Date(now.getTime() + 5 * 3600000).getUTCDay(); // 0=Вс, 6=Сб
+  const isWeekend = dow === 0 || dow === 6;
+  const category = isWeekend ? "Крипто" : "Форекс";
+  const asset = pick(isWeekend ? CRYPTO : FOREX);
+  console.log(`день=${dow} -> ${category}, актив ${asset}`);
+  const imageB64 = (await capture(category, asset)).toString("base64");
   for (const lang of ["ru", "kz"]) {
     const caption = await buildCaption(idx, lang, refs);
     await submitDraft({ asset, imageB64, caption, angle: idx, lang });

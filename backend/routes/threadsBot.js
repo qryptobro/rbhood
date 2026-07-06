@@ -97,37 +97,72 @@ async function publishThreads(imageUrl, text) {
   return p?.id ? { ok: true, id: p.id } : { ok: false, reason: JSON.stringify(p).slice(0, 200) };
 }
 
-// POST /api/threads-bot/draft — агент присылает готовый черновик, бэкенд шлёт его с кнопками
+const langTag = (lang) => lang === "kz" ? "🇰🇿 KZ" : lang === "manual" ? "✍️ Ручной" : "🇷🇺 RU";
+
+// отправить фото (буфер) в Telegram с кнопками
+async function sendPhotoBuffer(buffer, caption, kb) {
+  const form = new FormData();
+  form.append("chat_id", CHAT);
+  form.append("caption", caption.slice(0, 1024));
+  if (kb) form.append("reply_markup", JSON.stringify(kb));
+  form.append("photo", new Blob([buffer], { type: "image/png" }), "post.png");
+  return fetch(`https://api.telegram.org/bot${TG}/sendPhoto`, { method: "POST", body: form }).then(r => r.json());
+}
+
+// создать черновик: отправить в Telegram с кнопками + сохранить
+async function createDraft({ imageB64, imageUrl, caption, angle, lang }) {
+  const id = String(Date.now()).slice(-9) + Math.floor(Math.random() * 100);
+  const capText = `🆕 Черновик (${langTag(lang)}):\n\n${caption}`;
+  let sent;
+  if (imageB64) sent = await sendPhotoBuffer(Buffer.from(imageB64, "base64"), capText, keyboard(id));
+  else sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: capText.slice(0, 1024), reply_markup: keyboard(id) });
+  const messageId = sent?.result?.message_id;
+  if (!messageId) return { ok: false, sent };
+  const drafts = load();
+  drafts[id] = { imageB64: imageB64 || "", imageUrl: imageUrl || "", caption, angle: angle ?? 1, lang: lang || "ru", chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
+  const ids = Object.keys(drafts).sort();
+  while (ids.length > 40) delete drafts[ids.shift()];
+  save(drafts);
+  return { ok: true, id };
+}
+
+// скачать фото из Telegram -> base64
+async function downloadPhoto(fileId) {
+  const f = await tg("getFile", { file_id: fileId });
+  const path = f?.result?.file_path;
+  if (!path) return null;
+  const r = await fetch(`https://api.telegram.org/file/bot${TG}/${path}`);
+  return Buffer.from(await r.arrayBuffer()).toString("base64");
+}
+
+// переписать пост по инструкции пользователя (Gemini)
+async function reviseCaption(current, instruction, lang) {
+  const sys = `Отредактируй пост для Threads по инструкции пользователя. Верни ТОЛЬКО итоговый текст поста, без пояснений. Сохрани язык (${lang === "kz" ? "казахский" : "русский"}), живой человеческий тон, ссылку ai.rbhood.kz и хэштеги. Коротко.`;
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: sys }] },
+        contents: [{ role: "user", parts: [{ text: `Текущий пост:\n${current}\n\nИнструкция: ${instruction}` }] }],
+        generationConfig: { maxOutputTokens: 500, temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    const j = await r.json();
+    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
+    if (t) return trimTo(t, 900);
+  } catch { /* ignore */ }
+  return current;
+}
+
+// POST /api/threads-bot/draft — агент присылает готовый черновик
 router.post("/draft", async (req, res) => {
   if (AGENT_SECRET && req.headers["x-agent-secret"] !== AGENT_SECRET) return res.status(403).json({ error: "forbidden" });
   if (!TG || !CHAT) return res.status(503).json({ error: "telegram not configured" });
-  const { asset, imageB64, imageUrl, caption, angle, lang } = req.body || {};
+  const { imageB64, imageUrl, caption, angle, lang } = req.body || {};
   if ((!imageB64 && !imageUrl) || !caption) return res.status(400).json({ error: "image & caption required" });
-
-  const id = String(Date.now()).slice(-9) + Math.floor(Math.random() * 100);
-  const tag = lang === "kz" ? "🇰🇿 KZ" : "🇷🇺 RU";
-  const capText = `🆕 Черновик (${tag}):\n\n${caption}`.slice(0, 1024);
-
-  let sent;
-  if (imageB64) {
-    const form = new FormData();
-    form.append("chat_id", CHAT);
-    form.append("caption", capText);
-    form.append("reply_markup", JSON.stringify(keyboard(id)));
-    form.append("photo", new Blob([Buffer.from(imageB64, "base64")], { type: "image/png" }), "post.png");
-    sent = await fetch(`https://api.telegram.org/bot${TG}/sendPhoto`, { method: "POST", body: form }).then(r => r.json());
-  } else {
-    sent = await tg("sendPhoto", { chat_id: CHAT, photo: imageUrl, caption: capText, reply_markup: keyboard(id) });
-  }
-  const messageId = sent?.result?.message_id;
-  if (!messageId) return res.status(502).json({ error: "telegram send failed", tg: sent });
-
-  const drafts = load();
-  drafts[id] = { asset: asset || "", imageB64: imageB64 || "", imageUrl: imageUrl || "", caption, angle: angle ?? 1, lang: lang || "ru", chatId: CHAT, messageId, status: "pending", createdAt: Date.now() };
-  const ids = Object.keys(drafts).sort();
-  while (ids.length > 50) delete drafts[ids.shift()]; // храним последние 50
-  save(drafts);
-  res.json({ ok: true, id });
+  const r = await createDraft({ imageB64, imageUrl, caption, angle, lang });
+  if (!r.ok) return res.status(502).json({ error: "telegram send failed", tg: r.sent });
+  res.json({ ok: true, id: r.id });
 });
 
 // POST /api/threads-bot/webhook — Telegram шлёт сюда нажатия кнопок
@@ -135,7 +170,46 @@ router.post("/webhook", async (req, res) => {
   if (WH_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WH_SECRET) return res.sendStatus(403);
   res.sendStatus(200); // отвечаем Telegram сразу
   try {
-    const cq = req.body?.callback_query;
+    const upd = req.body || {};
+
+    // ── входящее сообщение: правка по инструкции / своя картинка / ручной пост ──
+    const msg = upd.message;
+    if (msg && String(msg.chat?.id) === String(CHAT) && !msg.from?.is_bot) {
+      const drafts = load();
+      const reply = msg.reply_to_message;
+      const entry = reply ? Object.entries(drafts).find(([, d]) => String(d.messageId) === String(reply.message_id)) : null;
+      const dId = entry?.[0]; const d = entry?.[1];
+
+      if (msg.photo && msg.photo.length) {
+        const b64 = await downloadPhoto(msg.photo[msg.photo.length - 1].file_id);
+        if (!b64) return;
+        if (d) { // ответ фото на черновик -> заменить картинку
+          await createDraft({ imageB64: b64, caption: msg.caption || d.caption, angle: d.angle, lang: d.lang });
+          await tg("sendMessage", { chat_id: CHAT, text: "🖼 Картинка заменена — новый черновик выше." });
+        } else if (msg.caption) { // своё фото + подпись -> ручной пост
+          await createDraft({ imageB64: b64, caption: msg.caption, angle: -1, lang: "manual" });
+          await tg("sendMessage", { chat_id: CHAT, text: "✍️ Твой пост готов — проверь и жми ✅ Одобрить." });
+        } else {
+          await tg("sendMessage", { chat_id: CHAT, text: "Добавь подпись к фото — сделаю из этого пост." });
+        }
+        return;
+      }
+      if (msg.text) {
+        if (d && dId) { // текст-инструкция в ответ на черновик -> правка
+          const nc = await reviseCaption(d.caption, msg.text, d.lang);
+          d.caption = nc; save(drafts);
+          await tg("editMessageCaption", { chat_id: d.chatId, message_id: d.messageId, caption: `🆕 Черновик (${langTag(d.lang)}, правка):\n\n${nc}`.slice(0, 1024), reply_markup: keyboard(dId) });
+          await tg("sendMessage", { chat_id: CHAT, text: "✏️ Поправил по инструкции ☝️" });
+        } else if (!reply && !/^\//.test(msg.text.trim())) {
+          await tg("sendMessage", { chat_id: CHAT, text: "Чтобы поправить пост — ответь (Reply) на него текстом-инструкцией.\nЧтобы сделать свой пост — пришли фото с подписью." });
+        }
+        return;
+      }
+      return;
+    }
+
+    // ── нажатие кнопки ──
+    const cq = upd.callback_query;
     if (!cq) return;
     const [act, id] = String(cq.data || "").split(":");
     const drafts = load(); const d = drafts[id];

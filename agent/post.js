@@ -24,6 +24,16 @@ const ANGLES = [
   { name: "Что НЕ делать", prompt: "Скажи, что в трейдинге делать НЕ нужно, даже если все так советуют." },
 ];
 
+// Формулы вирусных хуков — паттерны реально залетевших постов по трейдингу.
+// Добавляется в каждый промпт, чтобы текст читался как топовый, а не как ИИ-заготовка.
+const HOOK_RULES = ` ГЛАВНОЕ: первая строка — ХУК, который останавливает скролл. Возьми ОДНУ из формул залетевших постов:
+• Резкое противоречие: «Все учат X. Именно это и сливает депозит.»
+• Конкретика/цифра: «3 сделки в неделю. Не больше. Вот почему.»
+• Разрыв шаблона / незакрытая петля: «Год терял деньги, пока не понял одну вещь.»
+• Вызов идентичности: «Если ты всё ещё торгуешь по индикаторам — ты не трейдер, ты игрок.»
+• Польза за 1 строку: «Сохрани, чтобы не слить депо.»
+Правила: первая строка самая сильная; короткие рубленые фразы и переносы строк; без штампов и канцелярита; пиши как живой трейдер, а не бренд.`;
+
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const shuffle = (a) => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
@@ -48,7 +58,7 @@ const REC = {
 };
 const TAGS = { ru: "#трейдинг #форекс #крипто #акция", kz: "#трейдинг #форекс #крипто #акция" };
 const rndRec = (l) => REC[l][Math.floor(Math.random() * REC[l].length)];
-const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/\*+/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 function trimTo(t, max) {
   if (t.length <= max) return t;
   const cut = t.slice(0, max);
@@ -62,7 +72,7 @@ function toneInstr(lang) {
 }
 
 async function buildCaption(idx, lang) {
-  const sys = ANGLES[idx].prompt + toneInstr(lang);
+  const sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang);
   let content = "";
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {

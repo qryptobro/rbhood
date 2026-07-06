@@ -35,6 +35,15 @@ const ANGLES = [
   { prompt: "Скажи, что в трейдинге делать НЕ нужно, даже если все так советуют." },
 ];
 
+// Формулы вирусных хуков (синхронизировано с agent/post.js) — паттерны залетевших постов.
+const HOOK_RULES = ` ГЛАВНОЕ: первая строка — ХУК, который останавливает скролл. Возьми ОДНУ из формул залетевших постов:
+• Резкое противоречие: «Все учат X. Именно это и сливает депозит.»
+• Конкретика/цифра: «3 сделки в неделю. Не больше. Вот почему.»
+• Разрыв шаблона / незакрытая петля: «Год терял деньги, пока не понял одну вещь.»
+• Вызов идентичности: «Если ты всё ещё торгуешь по индикаторам — ты не трейдер, ты игрок.»
+• Польза за 1 строку: «Сохрани, чтобы не слить депо.»
+Правила: первая строка самая сильная; короткие рубленые фразы и переносы строк; без штампов и канцелярита; пиши как живой трейдер, а не бренд.`;
+
 function fmt(text) {
   const tags = (text.match(/#[\p{L}\p{N}_]+/gu) || []);
   const body = text.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
@@ -54,7 +63,7 @@ const REC = {
 };
 const TAGS = { ru: "#трейдинг #форекс #крипто #акция", kz: "#трейдинг #форекс #крипто #акция" };
 const rndRec = (l) => (REC[l] || REC.ru)[Math.floor(Math.random() * REC[l].length)];
-const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+const stripTags = (t) => t.replace(/#[\p{L}\p{N}_]+/gu, "").replace(/\*+/g, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 function trimTo(t, max) {
   if (t.length <= max) return t;
   const cut = t.slice(0, max);
@@ -75,7 +84,7 @@ async function buildCaption(idx, lang) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: angle.prompt + toneInstr(lang) }] },
+        system_instruction: { parts: [{ text: angle.prompt + HOOK_RULES + toneInstr(lang) }] },
         contents: [{ role: "user", parts: [{ text: "Другой вариант поста." }] }],
         generationConfig: { maxOutputTokens: 300, temperature: 1.2, thinkingConfig: { thinkingBudget: 0 } },
       }),

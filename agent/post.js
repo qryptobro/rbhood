@@ -9,6 +9,8 @@ const DEMO_EMAIL = process.env.DEMO_EMAIL;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GROQ_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
 
 // Только крипта — торгуется 24/7, карточки всегда активны.
@@ -81,21 +83,39 @@ function refsToUserMsg(refs = {}) {
     : "Напиши пост.";
 }
 
-async function buildCaption(idx, lang, refs = {}) {
-  const sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang);
-  let content = "";
+async function geminiGen(sys, userMsg) {
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(25000),
       body: JSON.stringify({
         system_instruction: { parts: [{ text: sys }] },
-        contents: [{ role: "user", parts: [{ text: refsToUserMsg(refs) }] }],
+        contents: [{ role: "user", parts: [{ text: userMsg }] }],
         generationConfig: { maxOutputTokens: 300, temperature: 1.1, thinkingConfig: { thinkingBudget: 0 } },
       }),
     });
     const j = await r.json();
-    content = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
-  } catch { /* ignore */ }
+    return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
+  } catch { return ""; }
+}
+
+// Фолбэк, когда Gemini упёрся в лимит (429) — иначе KZ залипал на дефолте.
+async function groqGen(sys, userMsg) {
+  if (!GROQ_KEY) return "";
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${GROQ_KEY}`, "Content-Type": "application/json" }, signal: AbortSignal.timeout(25000),
+      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }], max_tokens: 300, temperature: 1.05 }),
+    });
+    const j = await r.json();
+    return j.choices?.[0]?.message?.content?.trim() || "";
+  } catch { return ""; }
+}
+
+async function buildCaption(idx, lang, refs = {}) {
+  const sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang);
+  const userMsg = refsToUserMsg(refs);
+  let content = await geminiGen(sys, userMsg);
+  if (!content) content = await groqGen(sys, userMsg); // Gemini лимит -> Groq
   content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
   return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }

@@ -8,6 +8,21 @@ const AGENT_SECRET = process.env.AGENT_SECRET || "";
 const WH_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 const GEMINI = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GROQ_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+// Groq-фолбэк, когда Gemini в лимите (429).
+async function groqGen(sys, userMsg, maxTokens = 300) {
+  if (!GROQ_KEY) return "";
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${GROQ_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }], max_tokens: maxTokens, temperature: 1.0 }),
+    });
+    const j = await r.json();
+    return j.choices?.[0]?.message?.content?.trim() || "";
+  } catch { return ""; }
+}
 const TH_USER = process.env.THREADS_USER_ID || "";
 const TH_TOKEN = process.env.THREADS_ACCESS_TOKEN || "";
 const IMGBB_KEY = process.env.IMGBB_KEY || "1a1a33a6331c3c20d7500f317ca93905";
@@ -92,6 +107,7 @@ async function buildCaption(idx, lang) {
     const j = await r.json();
     content = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
   } catch { /* ignore */ }
+  if (!content) content = await groqGen(angle.prompt + toneInstr(lang), "Другой вариант поста."); // Gemini лимит -> Groq
   content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
   return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }
@@ -183,7 +199,8 @@ async function reviseCaption(current, instruction, lang) {
     const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
     if (t) return trimTo(t, 900);
   } catch { /* ignore */ }
-  return current;
+  const g = await groqGen(sys, `Текущий пост:\n${current}\n\nИнструкция: ${instruction}`, 500); // Gemini лимит -> Groq
+  return g ? trimTo(g, 900) : current;
 }
 
 // POST /api/threads-bot/draft — агент присылает готовый черновик

@@ -10,18 +10,29 @@ const GEMINI = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
 
-// Groq-фолбэк, когда Gemini в лимите (429).
-async function groqGen(sys, userMsg, maxTokens = 300) {
-  if (!GROQ_KEY) return "";
+const chatCompletion = (url, key) => async (sys, userMsg, maxTokens = 300, model) => {
+  if (!key) return "";
   try {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST", headers: { Authorization: `Bearer ${GROQ_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }], max_tokens: maxTokens, temperature: 1.0 }),
+    const r = await fetch(url, {
+      method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }], max_tokens: maxTokens, temperature: 1.0 }),
     });
     const j = await r.json();
     return j.choices?.[0]?.message?.content?.trim() || "";
   } catch { return ""; }
+};
+const _groq = chatCompletion("https://api.groq.com/openai/v1/chat/completions", GROQ_KEY);
+const _or = chatCompletion("https://openrouter.ai/api/v1/chat/completions", OPENROUTER_KEY);
+const groqGen = (sys, userMsg, maxTokens) => _groq(sys, userMsg, maxTokens, GROQ_MODEL);
+
+// Цепочка LLM: OpenRouter (Gemini 2.5) -> Groq. Возвращает "" если всё упало.
+async function genText(sys, userMsg, maxTokens = 300) {
+  let t = await _or(sys, userMsg, maxTokens, OPENROUTER_MODEL);
+  if (!t) t = await _groq(sys, userMsg, maxTokens, GROQ_MODEL);
+  return t;
 }
 const TH_USER = process.env.THREADS_USER_ID || "";
 const TH_TOKEN = process.env.THREADS_ACCESS_TOKEN || "";
@@ -94,20 +105,7 @@ function toneInstr(lang) {
 // сгенерировать новый вариант поста (для «Подправить») в том же угле и языке
 async function buildCaption(idx, lang) {
   const angle = ANGLES[idx] || ANGLES[1];
-  let content = "";
-  try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: angle.prompt + HOOK_RULES + toneInstr(lang) }] },
-        contents: [{ role: "user", parts: [{ text: "Другой вариант поста." }] }],
-        generationConfig: { maxOutputTokens: 300, temperature: 1.2, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
-    const j = await r.json();
-    content = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
-  } catch { /* ignore */ }
-  if (!content) content = await groqGen(angle.prompt + toneInstr(lang), "Другой вариант поста."); // Gemini лимит -> Groq
+  let content = await genText(angle.prompt + HOOK_RULES + toneInstr(lang), "Другой вариант поста.");
   content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
   return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }
@@ -186,21 +184,8 @@ async function downloadPhoto(fileId) {
 // переписать пост по инструкции пользователя (Gemini)
 async function reviseCaption(current, instruction, lang) {
   const sys = `Отредактируй пост для Threads по инструкции пользователя. Верни ТОЛЬКО итоговый текст поста, без пояснений. Сохрани язык (${lang === "kz" ? "казахский" : "русский"}), живой человеческий тон, ссылку ai.rbhood.kz и хэштеги. Коротко.`;
-  try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: sys }] },
-        contents: [{ role: "user", parts: [{ text: `Текущий пост:\n${current}\n\nИнструкция: ${instruction}` }] }],
-        generationConfig: { maxOutputTokens: 500, temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
-    const j = await r.json();
-    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").trim();
-    if (t) return trimTo(t, 900);
-  } catch { /* ignore */ }
-  const g = await groqGen(sys, `Текущий пост:\n${current}\n\nИнструкция: ${instruction}`, 500); // Gemini лимит -> Groq
-  return g ? trimTo(g, 900) : current;
+  const t = await genText(sys, `Текущий пост:\n${current}\n\nИнструкция: ${instruction}`, 500);
+  return t ? trimTo(t, 900) : current;
 }
 
 // POST /api/threads-bot/draft — агент присылает готовый черновик

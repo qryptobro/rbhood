@@ -11,6 +11,8 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
 const THREADS_SESSION = process.env.THREADS_SESSION || ""; // storageState JSON для скрапинга Threads
 const THREADS_QUERIES = (process.env.THREADS_QUERIES || "трейдинг,трейдер,инвестиции,крипта,биткоин").split(",").map(s => s.trim()).filter(Boolean);
 const AGENT_SECRET = process.env.AGENT_SECRET || "";
@@ -100,7 +102,6 @@ async function geminiGen(sys, userMsg) {
   } catch { return ""; }
 }
 
-// Фолбэк, когда Gemini упёрся в лимит (429) — иначе KZ залипал на дефолте.
 async function groqGen(sys, userMsg) {
   if (!GROQ_KEY) return "";
   try {
@@ -111,6 +112,27 @@ async function groqGen(sys, userMsg) {
     const j = await r.json();
     return j.choices?.[0]?.message?.content?.trim() || "";
   } catch { return ""; }
+}
+
+// OpenRouter (Gemini 2.5 Flash) — основной провайдер, стабильные лимиты.
+async function openrouterGen(sys, userMsg) {
+  if (!OPENROUTER_KEY) return "";
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST", headers: { Authorization: `Bearer ${OPENROUTER_KEY}`, "Content-Type": "application/json" }, signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ model: OPENROUTER_MODEL, messages: [{ role: "system", content: sys }, { role: "user", content: userMsg }], max_tokens: 400, temperature: 1.05 }),
+    });
+    const j = await r.json();
+    return j.choices?.[0]?.message?.content?.trim() || "";
+  } catch { return ""; }
+}
+
+// Цепочка LLM: OpenRouter -> Gemini напрямую -> Groq.
+async function genText(sys, userMsg) {
+  let t = await openrouterGen(sys, userMsg);
+  if (!t) t = await geminiGen(sys, userMsg);
+  if (!t) t = await groqGen(sys, userMsg);
+  return t;
 }
 
 // Системный промпт: молча разбери залетевшие посты, на выход — только готовый пост.
@@ -128,8 +150,7 @@ async function buildCaption(idx, lang, refs = {}) {
     sys = ANGLES[idx].prompt + HOOK_RULES + toneInstr(lang); // фолбэк: угол + новостные тренды
     userMsg = refsToUserMsg(refs);
   }
-  let content = await geminiGen(sys, userMsg);
-  if (!content) content = await groqGen(sys, userMsg); // Gemini лимит -> Groq
+  let content = await genText(sys, userMsg);
   content = trimTo(stripTags(content), 320) || (lang === "kz" ? "Трейдинг — жүйе, болжам емес." : "Трейдинг — это система, а не угадайка.");
   return `${content}\n\n${rndRec(lang)}\n\n${TAGS[lang]}`;
 }
